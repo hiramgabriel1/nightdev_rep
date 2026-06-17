@@ -3,10 +3,14 @@ import TelegramBot from 'node-telegram-bot-api'
 import { handleCommands } from './commands.js'
 import { handleMessage } from './handlers.js'
 import { logger } from './logger.js'
+import { prisma } from './db.js'
+
+await prisma.$connect()
+logger.info('Database connected')
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: true })
 
-bot.on('message', (msg) => {
+bot.on('message', async (msg) => {
   const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
   logger.info(`Message from ${user}: ${msg.text}`)
   handleMessage(bot, msg)
@@ -17,3 +21,8 @@ bot.on('error', (err) => logger.error('Bot error', err))
 handleCommands(bot)
 
 logger.info('Bot running...')
+
+process.on('SIGINT', async () => {
+  await prisma.$disconnect()
+  process.exit()
+})
