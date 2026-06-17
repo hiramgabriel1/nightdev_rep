@@ -1,15 +1,28 @@
-import TelegramBot from 'node-telegram-bot-api'
+import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { logger } from './logger.js'
 import { prisma } from './db.js'
+import { requestApiKeys } from './handlers.js'
 
 const welcomeText =
   'Bienvenido a Nightdev. Aquí podrás programar desde tu celular.\n\nOpciones:'
 
-async function upsertUser(telegramId: string, username?: string) {
+async function upsertUser(telegramId: string, msg: Message) {
+  const from = msg.from
   await prisma.user.upsert({
     where: { telegramId },
-    update: { username: username ?? undefined },
-    create: { telegramId, username: username ?? undefined },
+    update: {
+      username: from?.username ?? undefined,
+      firstName: from?.first_name ?? undefined,
+      lastName: from?.last_name ?? undefined,
+      languageCode: from?.language_code ?? undefined,
+    },
+    create: {
+      telegramId,
+      username: from?.username ?? undefined,
+      firstName: from?.first_name ?? undefined,
+      lastName: from?.last_name ?? undefined,
+      languageCode: from?.language_code ?? undefined,
+    },
   })
 }
 
@@ -19,7 +32,7 @@ export function handleCommands(bot: TelegramBot) {
     const username = msg.from?.username
     logger.info(`/start from ${username ?? telegramId}`)
 
-    await upsertUser(telegramId, username)
+    await upsertUser(telegramId, msg)
 
     bot.sendMessage(msg.chat.id, welcomeText, {
       reply_markup: {
@@ -32,14 +45,16 @@ export function handleCommands(bot: TelegramBot) {
   })
 
   bot.on('callback_query', async (query) => {
+    const telegramId = String(query.from?.id)
     const user = query.from?.username ?? query.from?.id
     logger.info(`Callback: ${query.data} from ${user}`)
 
     if (query.data === 'connect_api') {
       await prisma.user.update({
-        where: { telegramId: String(query.from?.id) },
-        data: { mode: 'bot' },
+        where: { telegramId },
+        data: { useOurService: false },
       })
+      requestApiKeys(telegramId)
       bot.answerCallbackQuery(query.id)
       bot.sendMessage(
         query.message?.chat.id!,
@@ -47,8 +62,8 @@ export function handleCommands(bot: TelegramBot) {
       )
     } else if (query.data === 'use_orchestrator') {
       await prisma.user.update({
-        where: { telegramId: String(query.from?.id) },
-        data: { mode: 'orchestrator' },
+        where: { telegramId },
+        data: { useOurService: true },
       })
       bot.answerCallbackQuery(query.id)
       bot.sendMessage(
