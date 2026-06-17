@@ -1,13 +1,14 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { logger } from './logger.js'
 import { prisma } from './db.js'
+import { openclaw } from './openclaw.js'
 
 const pendingKeys = new Map<string, string>()
 
 const OPENCODE_API_KEY_REGEX = /^[a-zA-Z0-9_-]{10,}$/
 const TELEGRAM_BOT_TOKEN_REGEX = /^\d{5,16}:[a-zA-Z0-9_-]{34}$/
 
-export function handleMessage(bot: TelegramBot, msg: Message) {
+export async function handleMessage(bot: TelegramBot, msg: Message) {
   if (msg.text?.startsWith('/')) return
 
   const text = msg.text?.trim() || ''
@@ -43,6 +44,24 @@ export function handleMessage(bot: TelegramBot, msg: Message) {
       data: { tgApiKey: text },
     }).catch((err) => logger.error('Failed to save tgApiKey', err))
     bot.sendMessage(msg.chat.id, 'Credenciales guardadas. Tu bot propio está listo.')
+    return
+  }
+
+  const dbUser = await prisma.user.findUnique({ where: { telegramId } })
+
+  if (dbUser?.useOurService) {
+    logger.info(`Routing to OpenClaw for user ${user}`)
+    const typingMsg = await bot.sendMessage(msg.chat.id, 'Pensando...')
+
+    try {
+      const response = await openclaw.sendMessage(`tg:${telegramId}`, text)
+      bot.deleteMessage(msg.chat.id, typingMsg.message_id).catch(() => {})
+      bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' })
+    } catch (err) {
+      bot.deleteMessage(msg.chat.id, typingMsg.message_id).catch(() => {})
+      logger.error('OpenClaw error', err)
+      bot.sendMessage(msg.chat.id, 'Error al procesar tu mensaje. Intenta de nuevo.')
+    }
     return
   }
 

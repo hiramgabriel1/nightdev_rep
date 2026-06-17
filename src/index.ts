@@ -4,9 +4,13 @@ import { handleCommands } from './commands.js'
 import { handleMessage } from './handlers.js'
 import { logger } from './logger.js'
 import { prisma } from './db.js'
+import { openclaw } from './openclaw.js'
 
 await prisma.$connect()
 logger.info('Database connected')
+
+await openclaw.connect()
+logger.info('OpenClaw Gateway connected')
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: true })
 
