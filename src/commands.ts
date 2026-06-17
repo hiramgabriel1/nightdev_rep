@@ -68,7 +68,12 @@ export function handleCommands(bot: TelegramBot) {
       bot.answerCallbackQuery(query.id)
       bot.sendMessage(
         query.message?.chat.id!,
-        'Has seleccionado usar Nightdev como tu orquestador. Próximamente podrás gestionar tus proyectos desde aquí.',
+        '🚀 ¡Listo! Ya puedes empezar a crear desde aquí.\n\n' +
+        'Dime qué quieres construir y yo me encargo. Por ejemplo:\n\n' +
+        '• "Crea una API REST con Express"\n' +
+        '• "Hazme una landing page en React"\n' +
+        '• "Crea un script en Python que scrapeé una web"\n\n' +
+        'Solo escribe lo que necesitas y el agente lo construye por ti.',
       )
     }
   })
