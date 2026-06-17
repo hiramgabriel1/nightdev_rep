@@ -27,11 +27,13 @@
     "node-telegram-bot-api": "^1.1.0",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",
+    "ssh2": "^1.17.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
     "@types/node-telegram-bot-api": "^0.64.15",
+    "@types/ssh2": "^1.15.5",
     "@types/ws": "^8.18.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"

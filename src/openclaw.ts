@@ -1,140 +1,83 @@
-import WebSocket from 'ws'
+import { Client } from 'ssh2'
+import { readFileSync } from 'node:fs'
 import { logger } from './logger.js'
 
-interface GatewayMessage {
-  type: string
-  id?: string
-  method?: string
-  params?: Record<string, unknown>
-  event?: string
-  payload?: Record<string, unknown>
-  ok?: boolean
-  error?: unknown
-}
-
 class OpenClawService {
-  private ws: WebSocket | null = null
-  private pendingRequests = new Map<string, { resolve: (value: unknown) => void; reject: (err: Error) => void }>()
-  private eventHandlers = new Map<string, Set<(payload: unknown) => void>>()
-  private seq = 0
+  private conn: Client | null = null
 
-  constructor(private url: string, private token: string) {}
+  constructor(
+    private host: string,
+    private user: string,
+    private privateKey: string,
+    private gatewayToken: string,
+  ) {}
 
   async connect() {
     return new Promise<void>((resolve, reject) => {
-      this.ws = new WebSocket(this.url)
+      this.conn = new Client()
 
-      this.ws.on('open', () => {
-        logger.info('OpenClaw WebSocket connected')
-        this.sendConnect().then(resolve).catch(reject)
+      this.conn.on('ready', () => {
+        logger.info('SSH connected to OpenClaw VPS')
+        resolve()
       })
 
-      this.ws.on('message', (data: WebSocket.Data) => {
-        const msg: GatewayMessage = JSON.parse(data.toString())
-        this.handleMessage(msg)
-      })
-
-      this.ws.on('error', (err) => {
-        logger.error('OpenClaw WebSocket error', err)
+      this.conn.on('error', (err) => {
+        logger.error('SSH connection error', err)
         reject(err)
       })
 
-      this.ws.on('close', () => {
-        logger.warn('OpenClaw WebSocket closed, reconnecting...')
-        setTimeout(() => this.connect().catch(() => {}), 5000)
+      this.conn.connect({
+        host: this.host,
+        port: 22,
+        username: this.user,
+        privateKey: this.privateKey,
       })
     })
   }
 
-  private sendConnect(): Promise<void> {
+  async sendMessage(text: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const id = `connect-${this.nextId()}`
-      this.pendingRequests.set(id, { resolve: () => resolve(), reject })
-
-      this.ws!.send(JSON.stringify({
-        type: 'req',
-        id,
-        method: 'connect',
-        params: {
-          auth: { token: this.token },
-          client: { id: 'nightdev-bot', version: '1.0.0' },
-        },
-      }))
-    })
-  }
-
-  async sendMessage(sessionKey: string, text: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const id = `agent-${this.nextId()}`
-      let responseText = ''
-
-      const handler = (payload: unknown) => {
-        const p = payload as Record<string, unknown>
-        if (p.deltaText) {
-          responseText += p.deltaText
-        }
-        if (p.message && p.message !== responseText) {
-          responseText = p.message as string
-        }
+      if (!this.conn) {
+        reject(new Error('SSH not connected'))
+        return
       }
 
-      this.eventHandlers.set('agent', new Set([handler]))
+      const escaped = text.replace(/\\/g, '\\\\').replace(/'/g, "'\\''")
+      const cmd = `OPENCLAW_GATEWAY_TOKEN=${this.gatewayToken} openclaw agent --agent main --message '${escaped}'`
 
-      const timeout = setTimeout(() => {
-        this.eventHandlers.delete('agent')
-        resolve(responseText || 'No response received')
-      }, 120000)
-
-      this.pendingRequests.set(id, {
-        resolve: () => {
-          clearTimeout(timeout)
-          this.eventHandlers.delete('agent')
-          resolve(responseText || 'Done')
-        },
-        reject: (err) => {
-          clearTimeout(timeout)
-          this.eventHandlers.delete('agent')
+      this.conn!.exec(cmd, (err, stream) => {
+        if (err) {
           reject(err)
-        },
-      })
-
-      this.ws!.send(JSON.stringify({
-        type: 'req',
-        id,
-        method: 'agent',
-        params: {
-          sessionKey,
-          message: text,
-        },
-      }))
-    })
-  }
-
-  private handleMessage(msg: GatewayMessage) {
-    if (msg.type === 'res' && msg.id) {
-      const pending = this.pendingRequests.get(msg.id)
-      if (pending) {
-        this.pendingRequests.delete(msg.id)
-        if (msg.ok) {
-          pending.resolve(msg.payload)
-        } else {
-          pending.reject(new Error(String(msg.error)))
+          return
         }
-      }
-    }
 
-    if (msg.type === 'event' && msg.event) {
-      const handlers = this.eventHandlers.get(msg.event)
-      handlers?.forEach((h) => h(msg.payload))
-    }
-  }
+        let output = ''
+        let errorOutput = ''
 
-  private nextId() {
-    return ++this.seq
+        stream.on('close', (code: number) => {
+          if (code !== 0) {
+            logger.error(`OpenClaw command failed with code ${code}: ${errorOutput}`)
+            reject(new Error(errorOutput || 'Command failed'))
+            return
+          }
+          resolve(output.trim())
+        })
+
+        stream.on('data', (data: Buffer) => {
+          output += data.toString()
+        })
+
+        stream.stderr.on('data', (data: Buffer) => {
+          errorOutput += data.toString()
+        })
+      })
+    })
   }
 }
 
 export const openclaw = new OpenClawService(
-  process.env.OPENCLAW_GATEWAY_URL!,
+  process.env.VPS_HOST || '159.203.189.5',
+  process.env.VPS_USER || 'root',
+  readFileSync('.ssh_key', 'utf-8'),
   process.env.OPENCLAW_GATEWAY_TOKEN!,
 )

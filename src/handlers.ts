@@ -54,7 +54,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
     const typingMsg = await bot.sendMessage(msg.chat.id, 'Pensando...')
 
     try {
-      const response = await openclaw.sendMessage(`tg:${telegramId}`, text)
+      const response = await openclaw.sendMessage(text)
       bot.deleteMessage(msg.chat.id, typingMsg.message_id).catch(() => {})
       bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' })
     } catch (err) {

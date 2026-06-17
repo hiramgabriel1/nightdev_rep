@@ -1,5 +1,6 @@
 node_modules/
 dist/
 .env
+.ssh_key
 
 /src/generated/prisma
