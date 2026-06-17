@@ -1,0 +1,17 @@
+# OpenClaw internal files
+.openclaw/
+
+# Memory files (optional - uncomment if you want to keep them private)
+# memory/
+# MEMORY.md
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
