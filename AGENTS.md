@@ -30,3 +30,4 @@
   - Examples: `feat: add message logger`, `fix: resolve token loading order`
 - Stage only files related to the change (`git add <files>`)
 - Run `pnpm build` before committing to verify compilation
+- Always `git push` after committing

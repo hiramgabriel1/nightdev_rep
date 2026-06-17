@@ -1,4 +1,6 @@
 allowBuilds:
   '@prisma/engines': true
+  cpu-features: true
   esbuild: false
   prisma: true
+  ssh2: true
