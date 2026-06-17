@@ -7,7 +7,8 @@ import { logger } from './logger.js'
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: true })
 
 bot.on('message', (msg) => {
-  logger.info(`Message from ${msg.from?.username || msg.from?.id}: ${msg.text}`)
+  const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
+  logger.info(`Message from ${user}: ${msg.text}`)
   handleMessage(bot, msg)
 })
 

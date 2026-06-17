@@ -1,12 +1,35 @@
-const levels = { info: 'INFO', warn: 'WARN', error: 'ERROR', debug: 'DEBUG' }
-
-function format(level: string, msg: string) {
-  return `[${new Date().toISOString()}] ${level}: ${msg}`
+export enum LogLevel {
+  Info = 'INFO',
+  Warn = 'WARN',
+  Error = 'ERROR',
+  Debug = 'DEBUG',
 }
 
-export const logger = {
-  info: (msg: string) => console.log(format(levels.info, msg)),
-  warn: (msg: string) => console.warn(format(levels.warn, msg)),
-  error: (msg: string, err?: unknown) => console.error(format(levels.error, `${msg}${err ? ` - ${err}` : ''}`)),
-  debug: (msg: string) => console.debug(format(levels.debug, msg)),
+type LogMessage = string | Record<string, unknown>
+
+class Logger {
+  private format(level: LogLevel, msg: LogMessage): string {
+    const timestamp = new Date().toISOString()
+    const content = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)
+    return `[${timestamp}] ${level}: ${content}`
+  }
+
+  info(msg: LogMessage): void {
+    console.log(this.format(LogLevel.Info, msg))
+  }
+
+  warn(msg: LogMessage): void {
+    console.warn(this.format(LogLevel.Warn, msg))
+  }
+
+  error(msg: LogMessage, err?: unknown): void {
+    const detail = err instanceof Error ? err.message : err
+    console.error(this.format(LogLevel.Error, `${msg}${detail ? ` - ${detail}` : ''}`))
+  }
+
+  debug(msg: LogMessage): void {
+    console.debug(this.format(LogLevel.Debug, msg))
+  }
 }
+
+export const logger = new Logger()
