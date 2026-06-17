@@ -19,7 +19,7 @@ export function handleMessage(bot: TelegramBot, msg: Message) {
       where: { telegramId },
       data: { opencodeApiKey: text },
     }).catch((err) => logger.error('Failed to save opencodeApiKey', err))
-    bot.sendMessage(msg.chat.id, 'Ahora envía tu token de Telegram Bot.')
+    bot.sendMessage(msg.chat.id, 'Envía tu API key de Telegram Bot para configurar tu bot propio.')
     return
   }
 

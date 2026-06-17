@@ -58,7 +58,7 @@ export function handleCommands(bot: TelegramBot) {
       bot.answerCallbackQuery(query.id)
       bot.sendMessage(
         query.message?.chat.id!,
-        'Envía tu API key de OpenCode y tu token de Telegram Bot para configurar tu bot propio.',
+        'Envía tu API key de OpenCode',
       )
     } else if (query.data === 'use_orchestrator') {
       await prisma.user.update({
