@@ -4,6 +4,9 @@ import { prisma } from './db.js'
 
 const pendingKeys = new Map<string, string>()
 
+const OPENCODE_API_KEY_REGEX = /^[a-zA-Z0-9_-]{10,}$/
+const TELEGRAM_BOT_TOKEN_REGEX = /^\d{5,16}:[a-zA-Z0-9_-]{34}$/
+
 export function handleMessage(bot: TelegramBot, msg: Message) {
   if (msg.text?.startsWith('/')) return
 
@@ -14,6 +17,11 @@ export function handleMessage(bot: TelegramBot, msg: Message) {
   const pending = pendingKeys.get(telegramId)
 
   if (pending === 'opencode') {
+    if (!OPENCODE_API_KEY_REGEX.test(text)) {
+      bot.sendMessage(msg.chat.id, 'Esa API key no parece válida. Debe tener al menos 10 caracteres alfanuméricos.')
+      return
+    }
+
     pendingKeys.set(telegramId, 'telegram')
     prisma.user.update({
       where: { telegramId },
@@ -24,6 +32,11 @@ export function handleMessage(bot: TelegramBot, msg: Message) {
   }
 
   if (pending === 'telegram') {
+    if (!TELEGRAM_BOT_TOKEN_REGEX.test(text)) {
+      bot.sendMessage(msg.chat.id, 'Ese token no parece válido. Formato esperado: 123456:ABC-DEF...')
+      return
+    }
+
     pendingKeys.delete(telegramId)
     prisma.user.update({
       where: { telegramId },
