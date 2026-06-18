@@ -237,28 +237,10 @@ async function telegramSetupStep(): Promise<void> {
     console.log('\n️  Telegram Bot Token omitido.')
   }
 
-  console.log('\n✅ Configuración completa.\n')
-  await pauseAndReturn()
-}
-
-async function pauseAndReturn() {
-  await inquirer.prompt([
-    {
-      type: 'select',
-      name: 'continue',
-      message: '¿Qué deseas hacer?',
-      choices: [
-        { name: 'Volver al menú principal', value: 'back' },
-        { name: 'Salir', value: 'exit' },
-      ],
-    },
-  ]).then(async ({ continue: choice }) => {
-    if (choice === 'exit') {
-      console.log('\n👋 ¡Hasta luego!\n')
-      process.exit(0)
-    }
-    await mainMenu()
-  })
+  console.log('\n✅ Configuración completa.')
+  console.log('   Ya puedes hablar con tu bot de Telegram.\n')
+  console.log('👋 ¡Hasta luego!\n')
+  process.exit(0)
 }
 
 export async function startCLI() {
