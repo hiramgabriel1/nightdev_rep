@@ -552,6 +552,8 @@ services:
       - ./users/nightdev/workspace-builder:/root/.openclaw/workspace-builder
       - ./users/nightdev/workspace-tester:/root/.openclaw/workspace-tester
       - ./users/nightdev/workspace-committer:/root/.openclaw/workspace-committer
+      - /opt/nightdev/.ssh/nightdev-robot:/root/.ssh/id_ed25519:ro
+      - /opt/nightdev/.ssh/known_hosts:/root/.ssh/known_hosts:ro
     restart: unless-stopped
 COMPOSEFILE
 ok "docker-compose.yml written"
@@ -578,6 +580,42 @@ cat > "${USERS_DIR}/nightdev/openclaw.json" << OPENCLAWJSON
 }
 OPENCLAWJSON
 ok "openclaw.json written"
+
+# ── Generate SSH deploy key ────────────────────
+info "Generating SSH deploy key for nightdev-robot..."
+mkdir -p "${NIGHTDEV_DIR}/.ssh"
+if [ ! -f "${NIGHTDEV_DIR}/.ssh/nightdev-robot" ]; then
+  ssh-keygen -t ed25519 -C "nightdev-robot@nightdev" -f "${NIGHTDEV_DIR}/.ssh/nightdev-robot" -N "" -q
+  ssh-keyscan -t rsa github.com >> "${NIGHTDEV_DIR}/.ssh/known_hosts" 2>/dev/null
+  chmod 600 "${NIGHTDEV_DIR}/.ssh/nightdev-robot"
+  chmod 644 "${NIGHTDEV_DIR}/.ssh/nightdev-robot.pub"
+  ok "SSH key generated"
+else
+  ok "SSH key already exists"
+fi
+
+# ── Write committer workspace files ────────────
+info "Writing committer workspace files..."
+cat > "${USERS_DIR}/nightdev/workspace-committer/AGENTS.md" << 'COMMITTERMD'
+# Committer Agent
+
+## Role
+Push code to GitHub repositories using git.
+
+## Setup
+- SSH key mounted at /root/.ssh/id_ed25519 (deploy key on GitHub)
+- known_hosts at /root/.ssh/known_hosts
+- git-config.json in this workspace has: { repo, branch }
+
+## Rules
+- Read git-config.json first to know the repo URL and branch
+- Init git if needed: git init && git remote add origin <repo>
+- On commit requests: git add -A, git commit -m "<message>", git push origin <branch>
+- If no git-config.json exists, skip committing
+- Do NOT force push
+- Report the commit hash and what was pushed
+COMMITTERMD
+ok "Committer workspace files written"
 
 # ── Write users.json ──────────────────────────
 cat > "${NIGHTDEV_DIR}/users.json" << USERSJSON
