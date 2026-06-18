@@ -133,11 +133,13 @@ nightdev/
 │   │   ├── commands.ts       # /start, /status, /config, /help handlers
 │   │   └── handlers.ts       # Message processing & rate limiting
 │   ├── services/
-│   │   ├── openclaw.ts       # HTTP client for the VPS bridge
+│   │   ├── openclaw.ts       # HTTP client for the VPS master bridge
 │   │   └── security.ts       # Output sanitization
 │   └── core/
 │       ├── db.ts             # Prisma client instance
 │       └── logger.ts         # Typed logger with levels
+├── scripts/
+│   └── setup.sh              # One-command VPS bootstrap script
 ├── prisma/
 │   └── schema.prisma         # Database schema
 ├── public/
@@ -145,6 +147,7 @@ nightdev/
 ├── .env.example              # Environment template
 ├── package.json
 ├── tsconfig.json
+└── opencode.json             # AI agent configuration
 ```
 
 ##  Tech Stack
