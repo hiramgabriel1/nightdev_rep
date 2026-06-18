@@ -11,7 +11,11 @@ Nightdev is a Telegram bot that lets you program and build software directly fro
 
 ## ✨ Features
 
-- **AI Orchestration** — Describe what you want to build, and the bot executes it via SSH on a remote VPS using OpenClaw.
+- **Multi-Agent Pipeline** — Three specialized agents work together to build, test, and commit your code:
+  - 🔨 **Builder** — Generates clean, functional code
+  - 🧪 **Tester** — Reviews and verifies the code (auto-retries up to 3 times on failure)
+  - 📦 **Committer** — Creates meaningful git commits with Conventional Commits format
+- **Approval Workflow** — Review the pipeline report and approve or reject before committing
 - **Bring Your Own Bot** — Connect your own OpenClaw API key and Telegram Bot token to run a personalized bot.
 - **Rate Limiting** — Built-in protection against spam (10 messages/min per user).
 - **Persistent Storage** — User data and preferences stored in PostgreSQL via Prisma.
@@ -21,8 +25,24 @@ Nightdev is a Telegram bot that lets you program and build software directly fro
 
 ```
 Telegram Client  →  Nightdev Bot (Node.js)  →  OpenClaw (SSH on VPS)
-                        ↓
-                   PostgreSQL (Prisma)
+                        ↓                          ↓
+                   PostgreSQL (Prisma)      ┌── Builder
+                                            ├── Tester
+                                            └── Committer
+```
+
+### Pipeline Flow
+
+```
+User: "Create a REST API with Express"
+   ↓
+1. 🔨 Builder generates the code
+   ↓
+2. 🧪 Tester verifies → PASS ✅ or FAIL ❌
+   ↓ (if FAIL, retry up to 3 times)
+3. 📦 Bot sends report with Approve/Reject buttons
+   ↓
+4. User approves → 📦 Committer creates git commit
 ```
 
 ## 📋 Prerequisites
@@ -30,6 +50,7 @@ Telegram Client  →  Nightdev Bot (Node.js)  →  OpenClaw (SSH on VPS)
 - **Node.js** v20 or higher
 - **pnpm** v8 or higher
 - **PostgreSQL** database
+- **OpenClaw** installed on a remote VPS with multiple agents configured
 
 ## 🚀 Getting Started
 
@@ -89,8 +110,9 @@ pnpm start
 nightdev/
 ├── src/
 │   ├── index.ts          # Entrypoint & bot initialization
-│   ├── commands.ts       # /start, /help handlers
+│   ├── commands.ts       # /start, /help handlers & pipeline callbacks
 │   ├── handlers.ts       # Message processing & rate limiting
+│   ├── pipeline.ts       # Multi-agent pipeline orchestrator
 │   ├── openclaw.ts       # SSH service for OpenClaw execution
 │   ├── db.ts             # Prisma client instance
 │   └── logger.ts         # Typed logger with levels
@@ -109,6 +131,7 @@ nightdev/
 - **Database**: PostgreSQL + Prisma ORM
 - **Rate Limiting**: rate-limiter-flexible
 - **SSH Client**: ssh2
+- **AI Agents**: OpenClaw (multi-agent)
 - **Development**: tsx
 
 ## 📄 License
