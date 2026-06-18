@@ -1,11 +1,16 @@
+import 'dotenv/config'
 import inquirer from 'inquirer'
 import { render } from 'oh-my-logo'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const configPath = join(__dirname, '..', '.nightdev-config.json')
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+const prisma = new PrismaClient({ adapter })
 
 interface LocalConfig {
   provider?: string
@@ -285,10 +290,24 @@ async function githubSetupStep(): Promise<void> {
     },
   ])
 
-  config.githubRepo = repoUrl
-  config.githubBranch = 'main'
-  config.githubDeployKeyDone = false
-  saveConfig(config)
+  // Save to database
+  try {
+    const user = await prisma.user.findFirst({ where: { useOurService: true } })
+    if (user) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { githubRepo: repoUrl, githubBranch: 'main' },
+      })
+    } else {
+      console.log('\n⚠️  No Nightdev user found in database. /start the bot first, then use /repo to configure.\n')
+    }
+  } catch (err) {
+    console.log('\n⚠️  Could not connect to database. The config will apply when you start the bot.\n')
+    config.githubRepo = repoUrl
+    config.githubBranch = 'main'
+    config.githubDeployKeyDone = false
+    saveConfig(config)
+  }
 
   console.log('\n')
   console.log('──────────────────────────────────────────')
@@ -306,6 +325,8 @@ async function githubSetupStep(): Promise<void> {
   console.log('\n✅ GitHub configured.')
   console.log('   Start your bot with: pnpm dev')
   console.log('   Then use /deploykey in Telegram to get the SSH key.\n')
+
+  await prisma.$disconnect()
   console.log(' Goodbye!\n')
   process.exit(0)
 }

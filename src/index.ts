@@ -1,15 +1,10 @@
 import 'dotenv/config'
 import TelegramBot from 'node-telegram-bot-api'
-import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { handleCommands } from './bot/commands.js'
 import { handleMessage } from './bot/handlers.js'
 import { logger } from './core/logger.js'
 import { prisma } from './core/db.js'
 import { openclaw } from './services/openclaw.js'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 await prisma.$connect()
 logger.info('Database connected')
@@ -17,29 +12,19 @@ logger.info('Database connected')
 await openclaw.connect()
 logger.info('OpenClaw Gateway connected')
 
-// Sync GitHub repo from local config if pending
-const localConfigPath = join(__dirname, '..', '.nightdev-config.json')
-if (existsSync(localConfigPath)) {
-  try {
-    const localConfig = JSON.parse(readFileSync(localConfigPath, 'utf-8'))
-    if (localConfig.githubRepo && !localConfig.githubDeployKeyDone) {
-      logger.info('Syncing GitHub repo from local config...')
-      const users = await prisma.user.findFirst({ where: { useOurService: true } })
-      if (users) {
-        await openclaw.setRepo(users.telegramId!, localConfig.githubRepo, localConfig.githubBranch || 'main')
-        await prisma.user.update({
-          where: { id: users.id },
-          data: {
-            githubRepo: localConfig.githubRepo,
-            githubBranch: localConfig.githubBranch || 'main',
-          },
-        })
-        logger.info('GitHub repo synced to bridge and database')
-      }
-    }
-  } catch (err) {
-    if (err instanceof Error) logger.warn('Failed to sync local config: ' + err.message)
+// Sync GitHub repos from database to bridge (for users who configured via CLI)
+try {
+  const usersWithRepo = await prisma.user.findMany({
+    where: { githubRepo: { not: null }, githubDeployKeyDone: false },
+  })
+  for (const user of usersWithRepo) {
+    if (!user.telegramId) continue
+    logger.info(`Syncing GitHub repo for user ${user.telegramId}...`)
+    await openclaw.setRepo(user.telegramId, user.githubRepo!, user.githubBranch ?? 'main')
   }
+  if (usersWithRepo.length > 0) logger.info(`Synced ${usersWithRepo.length} GitHub repo(s) to bridge`)
+} catch (err) {
+  if (err instanceof Error) logger.warn('GitHub sync failed: ' + err.message)
 }
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, {
