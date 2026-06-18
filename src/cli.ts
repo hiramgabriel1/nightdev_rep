@@ -222,7 +222,7 @@ async function telegramSetupStep(): Promise<void> {
       message: 'Ingresa tu Telegram Bot Token (de @BotFather):',
       validate: (input: string) => {
         if (input.trim() === '') return true
-        const regex = /^\d{5,16}:[a-zA-Z0-9_-]{34}$/
+        const regex = /^\d{5,16}:[a-zA-Z0-9_-]{34,40}$/
         if (!regex.test(input)) return 'Formato inválido. Debe ser como: 123456:ABC-DEF...'
         return true
       },
