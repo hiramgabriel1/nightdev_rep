@@ -3,6 +3,7 @@ import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { logger } from '../core/logger.js'
 import { prisma } from '../core/db.js'
 import { runPipeline } from '../services/pipeline.js'
+import { pendingConfig } from './commands.js'
 
 const rateLimiter = new RateLimiterMemory({
   points: 10,
@@ -21,8 +22,11 @@ async function checkRateLimit(telegramId: string): Promise<boolean> {
 export async function handleMessage(bot: TelegramBot, msg: Message) {
   if (msg.text?.startsWith('/')) return
 
-  const text = msg.text?.trim() || ''
   const telegramId = String(msg.from?.id)
+
+  if (pendingConfig.has(telegramId)) return
+
+  const text = msg.text?.trim() || ''
   const username = msg.from?.username
   const user = username ?? msg.from?.id ?? 'unknown'
 
