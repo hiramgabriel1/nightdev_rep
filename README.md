@@ -74,8 +74,8 @@ Required variables:
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | Your Telegram Bot token from @BotFather |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `OPENCLAW_BRIDGE_HOST` | VPS IP or hostname (default: 159.203.189.5) |
-| `OPENCLAW_BRIDGE_PORT` | Bridge port (default: 18790) |
+| `OPENCLAW_BRIDGE_HOST` | VPS IP or hostname |
+| `OPENCLAW_BRIDGE_PORT` | Bridge port |
 | `OPENCLAW_BRIDGE_TOKEN` | Auth token for the bridge |
 
 ### 4. Setup database
