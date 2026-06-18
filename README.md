@@ -122,6 +122,21 @@ pnpm build
 pnpm start
 ```
 
+### 6. Run with Docker (alternative)
+
+```bash
+# Build image
+docker build -t nightdev-bot .
+
+# Run (mount .env with your config)
+docker run -d \
+  --name nightdev-bot \
+  --env-file .env \
+  --network host \
+  --restart unless-stopped \
+  nightdev-bot
+```
+
 ## 📂 Project Structure
 
 ```
@@ -145,6 +160,7 @@ nightdev/
 │   └── schema.prisma         # Database schema
 ├── public/
 │   └── nightdev-removebg-preview.png
+├── Dockerfile                # Multi-stage build for Docker deployment
 ├── .env.example              # Environment template
 ├── package.json
 ├── tsconfig.json
