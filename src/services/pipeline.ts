@@ -34,12 +34,11 @@ export async function runPipeline(
     return
   }
 
-  const statusMsg = await bot.sendMessage(chatId, '🔨 Builder está trabajando...')
+  const statusMsg = await bot.sendMessage(chatId, '🧠 Analizando...')
 
   try {
     const rawOutput = sanitizeOutput(await openclaw.sendMessage(message, 'builder'))
 
-    // Builder clasifica automáticamente usando rules (IDENTITY.md)
     if (rawOutput.startsWith('TYPE: CHAT')) {
       await bot.deleteMessage(chatId, statusMsg.message_id)
       const chatResponse = rawOutput.replace(/^TYPE:\s*CHAT\s*\n?/i, '').trim()
@@ -56,7 +55,7 @@ export async function runPipeline(
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0) {
         retries = attempt
-        await bot.editMessageText(`🔨 Builder reintentando (intento ${attempt}/${MAX_RETRIES})...`, {
+        await bot.editMessageText(`🧠 Builder reintentando (intento ${attempt}/${MAX_RETRIES})...`, {
           chat_id: chatId,
           message_id: statusMsg.message_id,
         })
