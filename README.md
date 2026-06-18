@@ -11,52 +11,39 @@
 [![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748.svg)](https://www.prisma.io/)
 [![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 
-Nightdev is a Telegram bot that lets you program and build software directly from your phone using AI agents. It connects to a remote VPS to execute commands and deliver results instantly in your chat.
+Nightdev is a Telegram bot that lets you build software from your phone using AI agents on a remote VPS.
 
 ## ✨ Features
 
-- **Multi-Agent Pipeline** — Three specialized agents work together to build, test, and commit your code:
-  - 🔨 **Builder** — Generates clean, functional code
-  - 🧪 **Tester** — Reviews and verifies the code (auto-retries up to 3 times on failure)
-  -  **Committer** — Creates meaningful git commits with Conventional Commits format
-- **Approval Workflow** — Review the pipeline report and approve or reject before committing
-- **CLI Configuration** — Interactive CLI to set up your provider, API keys, and bot token
-- **Multi-Provider Support** — OpenClaw, Claude, OpenAI, Gemini, DeepSeek, Mistral, Groq, and more
-- **Security** — 3-layer prompt injection protection (agent-level, input filtering, output sanitization)
-- **Rate Limiting** — Built-in protection against spam (10 messages/min per user)
-- **Persistent Storage** — User data and preferences stored in PostgreSQL via Prisma
+- **Single-agent execution** — Messages are sent directly to an OpenClaw main agent that orchestrates the work
+- **Nightdev mode** — Uses Nightdev's own OpenClaw gateway with curated models (no API key needed)
+- **Bring your own provider** — Supports Claude, OpenAI, Gemini, DeepSeek, Mistral, Groq, and more
+- **Rate limiting** — Built-in protection against spam (10 messages/min per user)
+- **Persistent storage** — User data stored in PostgreSQL via Prisma
 - **Auto-recovery** — Robust polling error handling and auto-reconnect
 
 ##  Architecture
 
 ```
-Telegram Client  →  Nightdev Bot (Node.js)  →  OpenClaw (SSH on VPS)
-                         ↓                          ↓
-                    PostgreSQL (Prisma)      ┌── Builder
-                                             ├── Tester
-                                             └── Committer
+Telegram Client  →  Nightdev Bot (Node.js)  →  HTTP Bridge (VPS :18790)
+                                                   ↓
+                                              Gateway WebSocket (:18789)
+                                                   ↓
+                                              OpenClaw Agents
+                                                 ┌── main
+                                                 ├── builder
+                                                 ├── tester
+                                                 └── committer
 ```
 
-### Pipeline Flow
-
-```
-User: "Create a REST API with Express"
-   ↓
-1. 🔨 Builder generates the code
-   ↓
-2. 🧪 Tester verifies → PASS ✅ or FAIL ❌
-   ↓ (if FAIL, retry up to 3 times)
-3. 📦 Bot sends report with Approve/Reject buttons
-   ↓
-4. User approves → 📦 Committer creates git commit
-```
+The bot runs locally and connects to a lightweight HTTP bridge on the VPS. The bridge maintains a persistent pool of WebSocket connections to the OpenClaw gateway, avoiding the ~8s CLI startup cost on every message.
 
 ## 📋 Prerequisites
 
 - **Node.js** v20 or higher
 - **pnpm** v8 or higher
 - **PostgreSQL** database
-- **OpenClaw** installed on a remote VPS with multiple agents configured
+- **OpenClaw** gateway running on a VPS with an HTTP bridge
 
 ## 🚀 Getting Started
 
@@ -87,10 +74,9 @@ Required variables:
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | Your Telegram Bot token from @BotFather |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `OPENCLAW_GATEWAY_TOKEN` | Token for OpenClaw Gateway |
-| `VPS_HOST` | SSH host for the VPS (default: 159.203.189.5) |
-| `VPS_USER` | SSH username (default: root) |
-| `SSH_KEY_PATH` | Path to SSH private key (default: .ssh_key) |
+| `OPENCLAW_BRIDGE_HOST` | VPS IP or hostname (default: 159.203.189.5) |
+| `OPENCLAW_BRIDGE_PORT` | Bridge port (default: 18790) |
+| `OPENCLAW_BRIDGE_TOKEN` | Auth token for the bridge |
 
 ### 4. Setup database
 
@@ -99,15 +85,7 @@ pnpm prisma generate
 pnpm prisma db push
 ```
 
-### 5. Configure your settings
-
-Run the interactive CLI to set up your provider, API keys, and bot token:
-
-```bash
-pnpm cli
-```
-
-### 6. Run the bot
+### 5. Run the bot
 
 **Development** (with auto-reload):
 ```bash
@@ -129,12 +107,11 @@ nightdev/
 │   ├── cli/
 │   │   └── index.ts          # Interactive CLI for configuration
 │   ├── bot/
-│   │   ├── commands.ts       # /start, /status, /help handlers
+│   │   ├── commands.ts       # /start, /status, /config, /help handlers
 │   │   └── handlers.ts       # Message processing & rate limiting
 │   ├── services/
-│   │   ├── openclaw.ts       # SSH service for OpenClaw execution
-│   │   ├── pipeline.ts       # Multi-agent pipeline orchestrator
-│   │   └── security.ts       # Prompt injection protection
+│   │   ├── openclaw.ts       # HTTP client for the VPS bridge
+│   │   └── security.ts       # Output sanitization
 │   └── core/
 │       ├── db.ts             # Prisma client instance
 │       └── logger.ts         # Typed logger with levels
@@ -144,7 +121,7 @@ nightdev/
 │   └── nightdev-removebg-preview.png
 ├── .env.example              # Environment template
 ├── package.json
-── tsconfig.json
+├── tsconfig.json
 ```
 
 ##  Tech Stack
@@ -154,10 +131,9 @@ nightdev/
 - **Bot Framework**: node-telegram-bot-api
 - **Database**: PostgreSQL + Prisma ORM
 - **Rate Limiting**: rate-limiter-flexible
-- **SSH Client**: ssh2
-- **AI Agents**: OpenClaw (multi-agent)
-- **CLI**: inquirer + oh-my-logo
-- **Development**: tsx
+- **AI Agents**: OpenClaw on VPS
+- **Bridge**: Persistent Node.js HTTP → WebSocket gateway proxy
+- **Development**: tsx (watch mode)
 
 ## 📄 License
 
