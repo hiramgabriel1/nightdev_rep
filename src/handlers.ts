@@ -1,4 +1,5 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api'
+import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { logger } from './logger.js'
 import { prisma } from './db.js'
 import { openclaw } from './openclaw.js'
@@ -8,22 +9,18 @@ const pendingKeys = new Map<string, string>()
 const OPENCODE_API_KEY_REGEX = /^[a-zA-Z0-9_-]{10,}$/
 const TELEGRAM_BOT_TOKEN_REGEX = /^\d{5,16}:[a-zA-Z0-9_-]{34}$/
 
-const RATE_LIMIT_WINDOW_MS = 60_000
-const RATE_LIMIT_MAX_MESSAGES = 5
-const messageCounts = new Map<string, number[]>()
+const rateLimiter = new RateLimiterMemory({
+  points: 5,
+  duration: 60,
+})
 
-function checkRateLimit(telegramId: string): boolean {
-  const now = Date.now()
-  const timestamps = messageCounts.get(telegramId) || []
-  const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
-
-  if (valid.length >= RATE_LIMIT_MAX_MESSAGES) {
+async function checkRateLimit(telegramId: string): Promise<boolean> {
+  try {
+    await rateLimiter.consume(telegramId)
+    return true
+  } catch {
     return false
   }
-
-  valid.push(now)
-  messageCounts.set(telegramId, valid)
-  return true
 }
 
 export async function handleMessage(bot: TelegramBot, msg: Message) {
@@ -33,7 +30,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   const telegramId = String(msg.from?.id)
   const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
 
-  if (!checkRateLimit(telegramId)) {
+  if (!(await checkRateLimit(telegramId))) {
     bot.sendMessage(msg.chat.id, '⏳ Demasiados mensajes. Espera un momento antes de enviar otro.')
     return
   }
