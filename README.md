@@ -1,7 +1,7 @@
 # Nightdev
 
 <div align="center">
-  <img src="public/nightdev.png" alt="Nightdev Logo" width="200" />
+  <img src="public/nightdev-removebg-preview.png" alt="Nightdev Logo" width="200" />
 </div>
 
 > Build software from your pocket. A Telegram bot powered by AI agents.
