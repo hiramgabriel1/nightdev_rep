@@ -1,56 +1,116 @@
 # Nightdev
 
-Telegram bot que te permite programar desde tu celular usando agentes de IA.
+> Build software from your pocket. A Telegram bot powered by AI agents.
 
-## Qué hace
+[![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue.svg)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748.svg)](https://www.prisma.io/)
+[![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 
-Nightdev ofrece dos modos de uso:
+Nightdev is a Telegram bot that lets you program and build software directly from your phone using AI agents. It connects to a remote VPS to execute commands and deliver results instantly in your chat.
 
-- **Orquestador propio** — Envías un mensaje describiendo lo que quieres construir y el bot lo ejecuta en un VPS remoto a través de SSH usando [OpenClaw](https://openclaw.dev) como agente de IA.
-- **Bot propio** — Conectas tu propia API key de OpenClaw y tu token de Telegram Bot para crear tu propio bot personalizado gestionado por Nightdev.
+## ✨ Features
 
-## Arquitectura
+- **AI Orchestration** — Describe what you want to build, and the bot executes it via SSH on a remote VPS using OpenClaw.
+- **Bring Your Own Bot** — Connect your own OpenClaw API key and Telegram Bot token to run a personalized bot.
+- **Rate Limiting** — Built-in protection against spam (10 messages/min per user).
+- **Persistent Storage** — User data and preferences stored in PostgreSQL via Prisma.
+- **Auto-recovery** — Robust polling error handling and auto-reconnect.
+
+## 🏗 Architecture
 
 ```
-Telegram → Nightdev Bot → OpenClaw (SSH a VPS) → Respuesta
+Telegram Client  →  Nightdev Bot (Node.js)  →  OpenClaw (SSH on VPS)
+                        ↓
+                   PostgreSQL (Prisma)
 ```
 
-- **Telegram Bot** — `node-telegram-bot-api` con polling
-- **IA** — OpenClaw Gateway ejecutado vía SSH en un VPS
-- **Base de datos** — PostgreSQL con Prisma ORM
-- **Rate limiter** — `rate-limiter-flexible` (10 msg/min por usuario)
+## 📋 Prerequisites
 
-## Requisitos
+- **Node.js** v20 or higher
+- **pnpm** v8 or higher
+- **PostgreSQL** database
 
-- Node.js 22+
-- PostgreSQL
-- `.env` con las variables necesarias (ver `.env.example`)
-- Llave SSH en `.ssh_key` para conectar al VPS de OpenClaw
+## 🚀 Getting Started
 
-## Instalación
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/yourusername/nightdev.git
+cd nightdev
+```
+
+### 2. Install dependencies
 
 ```bash
 pnpm install
-cp .env.example .env
-# Configura tus variables en .env
-pnpm build
 ```
 
-## Uso
+### 3. Configure environment
+
+Copy the example file and fill in your credentials:
 
 ```bash
-pnpm dev    # Desarrollo con auto-reload
-pnpm start  # Producción
+cp .env.example .env
 ```
 
-## Estructura
+Required variables:
 
-| Archivo | Descripción |
+| Variable | Description |
 |---|---|
-| `src/index.ts` | Entrypoint, inicializa bot, DB y OpenClaw |
-| `src/commands.ts` | Handlers de `/start`, `/help` y callbacks |
-| `src/handlers.ts` | Lógica principal de mensajes y rate limiting |
-| `src/openclaw.ts` | Servicio SSH para ejecutar OpenClaw en VPS |
-| `src/db.ts` | Cliente Prisma |
-| `src/logger.ts` | Logger tipado con niveles |
-| `prisma/schema.prisma` | Modelo de usuario |
+| `TELEGRAM_BOT_TOKEN` | Your Telegram Bot token from @BotFather |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `OPENCLAW_GATEWAY_TOKEN` | Token for OpenClaw Gateway |
+| `VPS_HOST` | SSH host for the VPS (default: 159.203.189.5) |
+
+### 4. Setup database
+
+```bash
+pnpm prisma generate
+pnpm prisma db push
+```
+
+### 5. Run the bot
+
+**Development** (with auto-reload):
+```bash
+pnpm dev
+```
+
+**Production**:
+```bash
+pnpm build
+pnpm start
+```
+
+## 📂 Project Structure
+
+```
+nightdev/
+├── src/
+│   ├── index.ts          # Entrypoint & bot initialization
+│   ├── commands.ts       # /start, /help handlers
+│   ├── handlers.ts       # Message processing & rate limiting
+│   ├── openclaw.ts       # SSH service for OpenClaw execution
+│   ├── db.ts             # Prisma client instance
+│   └── logger.ts         # Typed logger with levels
+├── prisma/
+│   └── schema.prisma     # Database schema
+├── .env.example          # Environment template
+├── package.json
+└── tsconfig.json
+```
+
+## 🛠 Tech Stack
+
+- **Runtime**: Node.js (ESM)
+- **Language**: TypeScript
+- **Bot Framework**: node-telegram-bot-api
+- **Database**: PostgreSQL + Prisma ORM
+- **Rate Limiting**: rate-limiter-flexible
+- **SSH Client**: ssh2
+- **Development**: tsx
+
+## 📄 License
+
+ISC
