@@ -1,6 +1,6 @@
 import { Client } from 'ssh2'
 import { readFileSync } from 'node:fs'
-import { logger } from './logger.js'
+import { logger } from '../core/logger.js'
 
 type AgentId = 'main' | 'builder' | 'tester' | 'committer'
 

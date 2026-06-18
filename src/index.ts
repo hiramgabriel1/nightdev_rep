@@ -1,10 +1,10 @@
 import 'dotenv/config'
 import TelegramBot from 'node-telegram-bot-api'
-import { handleCommands } from './commands.js'
-import { handleMessage } from './handlers.js'
-import { logger } from './logger.js'
-import { prisma } from './db.js'
-import { openclaw } from './openclaw.js'
+import { handleCommands } from './bot/commands.js'
+import { handleMessage } from './bot/handlers.js'
+import { logger } from './core/logger.js'
+import { prisma } from './core/db.js'
+import { openclaw } from './services/openclaw.js'
 
 await prisma.$connect()
 logger.info('Database connected')

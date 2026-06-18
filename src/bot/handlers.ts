@@ -1,8 +1,8 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { RateLimiterMemory } from 'rate-limiter-flexible'
-import { logger } from './logger.js'
-import { prisma } from './db.js'
-import { runPipeline } from './pipeline.js'
+import { logger } from '../core/logger.js'
+import { prisma } from '../core/db.js'
+import { runPipeline } from '../services/pipeline.js'
 
 const rateLimiter = new RateLimiterMemory({
   points: 10,
@@ -30,7 +30,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
     where: { telegramId },
     update: { username },
     create: { telegramId, username },
-  }).catch((err) => logger.error('Failed to upsert user', err))
+  }).catch((err: unknown) => logger.error('Failed to upsert user', err))
 
   if (!(await checkRateLimit(telegramId))) {
     bot.sendMessage(msg.chat.id, '⏳ Demasiados mensajes. Espera un momento antes de enviar otro.')

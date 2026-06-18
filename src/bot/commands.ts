@@ -1,9 +1,9 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api'
-import { logger } from './logger.js'
-import { prisma } from './db.js'
-import { pendingPipelines } from './pipeline.js'
-import { openclaw } from './openclaw.js'
-import { sanitizeOutput } from './security.js'
+import { logger } from '../core/logger.js'
+import { prisma } from '../core/db.js'
+import { pendingPipelines } from '../services/pipeline.js'
+import { openclaw } from '../services/openclaw.js'
+import { sanitizeOutput } from '../services/security.js'
 
 async function upsertUser(telegramId: string, msg: Message) {
   const from = msg.from

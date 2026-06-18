@@ -1,6 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { openclaw } from './openclaw.js'
-import { logger } from './logger.js'
+import { logger } from '../core/logger.js'
 import { sanitizeInput, sanitizeOutput } from './security.js'
 
 const MAX_RETRIES = 3
