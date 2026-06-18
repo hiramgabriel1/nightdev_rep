@@ -1,5 +1,9 @@
 # Nightdev
 
+<div align="center">
+  <img src="public/nightdev.png" alt="Nightdev Logo" width="200" />
+</div>
+
 > Build software from your pocket. A Telegram bot powered by AI agents.
 
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
