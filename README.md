@@ -12,42 +12,27 @@
   </p>
 </div>
 
-Nightdev is a Telegram bot that lets you build software from your phone using AI agents on a remote VPS.
+Nightdev is a Telegram bot that builds software for you. Tell it what you want in plain language — it codes it, tests it, and pushes it to GitHub. All from your phone.
 
-## ✨ Features
+## ✨ What it can do
 
-- **Multi-agent pipeline** — Greetings go to main agent; build requests run through builder → tester agents
-- **Auto-provisioning** — New users get their own isolated Docker container on first message (no manual setup)
-- **PM2 auto-restart** — Container bridge managed by PM2; auto-recovers from crashes
-- **Rate limiting** — Built-in protection against spam (10 messages/min per user)
-- **Persistent storage** — User data stored in PostgreSQL via Prisma
+- **Build anything** — APIs, scripts, landing pages, bots, microservices, whatever you describe
+- **Commit to GitHub** — Creates repos, pushes code, manages branches. Just say "commit this"
+- **Multiple agents** — A main agent orchestrates builders, testers, and committers automatically
+- **Per-user isolation** — Each person gets their own Docker container with dedicated AI agents
+- **Auto-provisioning** — New users are set up automatically on first message, no manual config
+- **GitHub integration** — Connect your repo, add the deploy key, and the bot commits code for you
+- **One-command VPS setup** — A single script provisions the entire infrastructure
 
-##  Architecture
+## How it works
 
 ```
-Telegram Client  →  Nightdev Bot (Node.js)  →  Master Bridge (VPS :18790)
-                                                   ↓
-                                           (routes by user_id)
-                                                   ↓
-                                          ┌── nd-nightdev (:18791)
-                                          ├── nd-u{telegram_id} (:18792)
-                                          ├── nd-u{telegram_id} (:18793)
-                                          └── ... (auto-provisioned per user)
-                                                   ↓
-                                          ┌─ PM2 (auto-restart)
-                                          ├─ Container Bridge (Node.js)
-                                          └─ Gateway WebSocket (:18789)
-                                                   ↓
-                                              OpenClaw Agents
-                                                 ┌── main (conversation)
-                                                 ├── builder (build code)
-                                                 ├── tester (verify code)
-                                                 └── committer (git ops)
+You (Telegram) → Nightdev Bot → Master Bridge (VPS) → Your Container → AI Agents
+                                                                              ↓
+                                                                    Code → Test → GitHub
 ```
 
-The bot runs locally and connects to a **master bridge** on the VPS. Each Telegram user gets their own isolated Docker container with a dedicated OpenClaw gateway + bridge. The bridge process is managed by **PM2** for automatic crash recovery.
-
-New users are **auto-provisioned** — the master bridge creates the container, workspace, and configuration on first message.
+You message the bot on Telegram. It sends your request to your personal container on the VPS, where AI agents build, review, and commit your code. Everything is isolated per user.
 
 ## 🚀 VPS Setup (One Command)
 
@@ -147,7 +132,7 @@ nightdev/
 │   │   └── index.ts          # Interactive CLI for configuration
 │   ├── bot/
 │   │   ├── commands.ts       # /start, /status, /config, /help handlers
-│   │   └── handlers.ts       # Message processing & rate limiting
+│   │   └── handlers.ts       # Message processing
 │   ├── services/
 │   │   ├── openclaw.ts       # HTTP client for the VPS master bridge
 │   │   └── security.ts       # Output sanitization
@@ -173,12 +158,10 @@ nightdev/
 - **Language**: TypeScript
 - **Bot Framework**: node-telegram-bot-api
 - **Database**: PostgreSQL + Prisma ORM
-- **Rate Limiting**: rate-limiter-flexible
 - **AI Agents**: OpenClaw on VPS (multi-agent: main, builder, tester, committer)
 - **Bridge**: Persistent Node.js HTTP → WebSocket gateway proxy
-- **Process Management**: PM2 inside Docker containers (auto-restart)
-- **Orchestration**: Docker Compose + systemd (triple-layer recovery)
-- **Secrets**: `.env` files per user, `.gitignore`-d
+- **Process Management**: PM2 inside Docker containers
+- **Orchestration**: Docker Compose + systemd
 - **Development**: tsx (watch mode)
 
 ## 🤝 Contributing
