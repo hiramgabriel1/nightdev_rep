@@ -1,20 +1,46 @@
 import inquirer from 'inquirer'
 import { render } from 'oh-my-logo'
-import { prisma } from './db.js'
-import { logger } from './logger.js'
+import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const configPath = join(__dirname, '..', '.nightdev-config.json')
+
+interface LocalConfig {
+  provider?: string
+  providerApiKey?: string
+  telegramBotToken?: string
+  useOurService: boolean
+}
 
 const PROVIDERS = [
   { id: 'openclaw', name: 'OpenClaw', emoji: '🦞', prefix: 'sk-' },
-  { id: 'anthropic', name: 'Claude Code (Anthropic)', emoji: '', prefix: 'sk-ant-' },
+  { id: 'anthropic', name: 'Claude Code (Anthropic)', emoji: '🧠', prefix: 'sk-ant-' },
   { id: 'openai', name: 'OpenAI (GPT)', emoji: '🤖', prefix: 'sk-' },
   { id: 'google', name: 'Google Gemini', emoji: '💎', prefix: 'AIza' },
   { id: 'deepseek', name: 'DeepSeek', emoji: '🐋', prefix: 'sk-' },
   { id: 'mistral', name: 'Mistral', emoji: '🌬️', prefix: '' },
-  { id: 'groq', name: 'Groq', emoji: '', prefix: 'gsk_' },
+  { id: 'groq', name: 'Groq', emoji: '⚡', prefix: 'gsk_' },
   { id: 'together', name: 'Together AI', emoji: '🤝', prefix: '' },
   { id: 'perplexity', name: 'Perplexity', emoji: '🔍', prefix: 'pplx-' },
   { id: 'xai', name: 'xAI (Grok)', emoji: '', prefix: 'xai-' },
 ]
+
+function loadConfig(): LocalConfig {
+  if (existsSync(configPath)) {
+    try {
+      return JSON.parse(readFileSync(configPath, 'utf-8'))
+    } catch {
+      return { useOurService: false }
+    }
+  }
+  return { useOurService: false }
+}
+
+function saveConfig(config: LocalConfig) {
+  writeFileSync(configPath, JSON.stringify(config, null, 2))
+}
 
 async function showWelcome() {
   console.clear()
@@ -25,66 +51,37 @@ async function showWelcome() {
   console.log('\n')
 }
 
-async function identifyUser(): Promise<string> {
-  const { username } = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'username',
-      message: 'Ingresa tu @username de Telegram:',
-      validate: (input: string) => {
-        const cleaned = input.replace(/^@/, '').trim()
-        if (cleaned.length < 3) return 'El username debe tener al menos 3 caracteres'
-        return true
-      },
-    },
-  ])
-
-  return username.replace(/^@/, '').trim()
-}
-
-async function getUser(username: string) {
-  return await prisma.user.upsert({
-    where: { username },
-    update: {},
-    create: { username },
-  })
-}
-
-function showConfigStatus(user: any) {
+function showConfigStatus(config: LocalConfig) {
   console.log(' Configuración actual:')
   console.log('─'.repeat(40))
 
-  if (user.provider && user.providerApiKey) {
-    const provider = PROVIDERS.find((p) => p.id === user.provider)
-    const masked = user.providerApiKey.slice(0, 4) + '••••' + user.providerApiKey.slice(-4)
-    console.log(`   Proveedor: ${provider?.emoji} ${provider?.name || user.provider}`)
-    console.log(`   API Key: ${masked}`)
-  } else if (user.opencodeApiKey) {
-    const masked = user.opencodeApiKey.slice(0, 4) + '••••' + user.opencodeApiKey.slice(-4)
-    console.log(`   Proveedor: OpenClaw (legacy)`)
+  if (config.provider && config.providerApiKey) {
+    const provider = PROVIDERS.find((p) => p.id === config.provider)
+    const masked = config.providerApiKey.slice(0, 4) + '••••' + config.providerApiKey.slice(-4)
+    console.log(`   Proveedor: ${provider?.emoji} ${provider?.name || config.provider}`)
     console.log(`   API Key: ${masked}`)
   } else {
     console.log('   Proveedor: No configurado')
     console.log('   API Key: No configurada')
   }
 
-  if (user.tgApiKey) {
-    const masked = user.tgApiKey.slice(0, 6) + '••••' + user.tgApiKey.slice(-4)
+  if (config.telegramBotToken) {
+    const masked = config.telegramBotToken.slice(0, 6) + '••••' + config.telegramBotToken.slice(-4)
     console.log(`   Telegram Bot Token: ${masked}`)
   } else {
     console.log('   Telegram Bot Token: No configurado')
   }
 
-  console.log(`   Modo: ${user.useOurService ? 'Nightdev (orquestador)' : 'API key propia'}`)
+  console.log(`   Modo: ${config.useOurService ? 'Nightdev (orquestador)' : 'API key propia'}`)
   console.log('─'.repeat(40))
   console.log()
 }
 
-async function mainMenu(username: string): Promise<void> {
+async function mainMenu(): Promise<void> {
   await showWelcome()
 
-  const user = await getUser(username)
-  showConfigStatus(user)
+  const config = loadConfig()
+  showConfigStatus(config)
 
   type MainMenuAction = 'configure' | 'exit'
 
@@ -105,14 +102,14 @@ async function mainMenu(username: string): Promise<void> {
     return
   }
 
-  await configureMenu(username)
+  await configureMenu()
 }
 
-async function configureMenu(username: string): Promise<void> {
+async function configureMenu(): Promise<void> {
   await showWelcome()
 
-  const user = await getUser(username)
-  showConfigStatus(user)
+  const config = loadConfig()
+  showConfigStatus(config)
 
   type ConfigureAction = 'own_key' | 'nightdev' | 'back'
 
@@ -130,35 +127,35 @@ async function configureMenu(username: string): Promise<void> {
   ])
 
   if (action === 'back') {
-    await mainMenu(username)
+    await mainMenu()
     return
   }
 
   if (action === 'own_key') {
-    await providerSelectionMenu(username)
+    await providerSelectionMenu()
   } else if (action === 'nightdev') {
-    await prisma.user.update({
-      where: { username },
-      data: { useOurService: true, provider: null, providerApiKey: null },
-    })
+    config.useOurService = true
+    config.provider = undefined
+    config.providerApiKey = undefined
+    saveConfig(config)
     console.log('\n✅ ¡Listo! Ahora usarás los recursos y modelos de Nightdev.')
     console.log('   Solo escribe lo que quieres construir y el agente lo hará por ti.\n')
-    await telegramSetupStep(username)
+    await telegramSetupStep()
   }
 }
 
-async function providerSelectionMenu(username: string): Promise<void> {
+async function providerSelectionMenu(): Promise<void> {
   await showWelcome()
 
-  const user = await getUser(username)
-  showConfigStatus(user)
+  const config = loadConfig()
+  showConfigStatus(config)
 
   const choices = PROVIDERS.map((p) => ({
     name: `${p.emoji} ${p.name}`,
     value: p.id,
   }))
 
-  choices.push({ name: '️  Volver al menú anterior', value: 'back' })
+  choices.push({ name: 'Volver al menú anterior', value: 'back' })
 
   const { provider } = await inquirer.prompt<{ provider: string }>([
     {
@@ -170,7 +167,7 @@ async function providerSelectionMenu(username: string): Promise<void> {
   ])
 
   if (provider === 'back') {
-    await configureMenu(username)
+    await configureMenu()
     return
   }
 
@@ -178,7 +175,7 @@ async function providerSelectionMenu(username: string): Promise<void> {
 
   if (!selectedProvider) {
     console.log('\n❌ Proveedor no válido.\n')
-    await providerSelectionMenu(username)
+    await providerSelectionMenu()
     return
   }
 
@@ -201,25 +198,20 @@ async function providerSelectionMenu(username: string): Promise<void> {
     },
   ])
 
-  await prisma.user.update({
-    where: { username },
-    data: {
-      provider,
-      providerApiKey: apiKey,
-      useOurService: false,
-      opencodeApiKey: null,
-    },
-  })
+  config.provider = provider
+  config.providerApiKey = apiKey
+  config.useOurService = false
+  saveConfig(config)
 
   console.log(`\n✅ ${selectedProvider.emoji} ${selectedProvider.name} configurado correctamente.\n`)
-  await telegramSetupStep(username)
+  await telegramSetupStep()
 }
 
-async function telegramSetupStep(username: string): Promise<void> {
+async function telegramSetupStep(): Promise<void> {
   await showWelcome()
 
-  const user = await getUser(username)
-  showConfigStatus(user)
+  const config = loadConfig()
+  showConfigStatus(config)
 
   console.log(' Paso final: Conecta tu bot de Telegram\n')
 
@@ -238,20 +230,18 @@ async function telegramSetupStep(username: string): Promise<void> {
   ])
 
   if (telegramBotToken.trim() !== '') {
-    await prisma.user.update({
-      where: { username },
-      data: { tgApiKey: telegramBotToken },
-    })
+    config.telegramBotToken = telegramBotToken
+    saveConfig(config)
     console.log('\n✅ Telegram Bot Token guardado.')
   } else {
     console.log('\n️  Telegram Bot Token omitido.')
   }
 
   console.log('\n✅ Configuración completa.\n')
-  await pauseAndReturn(username)
+  await pauseAndReturn()
 }
 
-async function pauseAndReturn(username: string) {
+async function pauseAndReturn() {
   await inquirer.prompt([
     {
       type: 'select',
@@ -267,24 +257,12 @@ async function pauseAndReturn(username: string) {
       console.log('\n👋 ¡Hasta luego!\n')
       process.exit(0)
     }
-    await mainMenu(username)
+    await mainMenu()
   })
 }
 
 export async function startCLI() {
-  await prisma.$connect()
-  logger.info('Database connected')
-
-  await showWelcome()
-
-  const username = await identifyUser()
-  await getUser(username)
-
-  console.log(`\n✅ Usuario @${username} encontrado/creado.\n`)
-
-  await mainMenu(username)
-
-  await prisma.$disconnect()
+  await mainMenu()
 }
 
 startCLI()
