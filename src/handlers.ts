@@ -3,6 +3,7 @@ import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { logger } from './logger.js'
 import { prisma } from './db.js'
 import { openclaw } from './openclaw.js'
+import { runPipeline } from './pipeline.js'
 
 const pendingKeys = new Map<string, string>()
 
@@ -70,18 +71,8 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   const dbUser = await prisma.user.findUnique({ where: { telegramId } })
 
   if (dbUser?.useOurService) {
-    logger.info(`Routing to OpenClaw for user ${user}`)
-    const typingMsg = await bot.sendMessage(msg.chat.id, 'Pensando...')
-
-    try {
-      const response = await openclaw.sendMessage(text)
-      bot.deleteMessage(msg.chat.id, typingMsg.message_id).catch(() => {})
-      bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' })
-    } catch (err) {
-      bot.deleteMessage(msg.chat.id, typingMsg.message_id).catch(() => {})
-      logger.error('OpenClaw error', err)
-      bot.sendMessage(msg.chat.id, 'Error al procesar tu mensaje. Intenta de nuevo.')
-    }
+    logger.info(`Routing to pipeline for user ${user}`)
+    await runPipeline(bot, msg.chat.id, telegramId, text)
     return
   }
 

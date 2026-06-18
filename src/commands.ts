@@ -2,6 +2,8 @@ import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { logger } from './logger.js'
 import { prisma } from './db.js'
 import { requestApiKeys } from './handlers.js'
+import { pendingPipelines } from './pipeline.js'
+import { openclaw } from './openclaw.js'
 
 const welcomeText =
   'Bienvenido a Nightdev. Aquí podrás programar desde tu celular.\n\nOpciones:'
@@ -75,6 +77,49 @@ export function handleCommands(bot: TelegramBot) {
         '• "Crea un script en Python que scrapeé una web"\n\n' +
         'Solo escribe lo que necesitas y el agente lo construye por ti.',
       )
+    } else if (query.data && (query.data.startsWith('approve:') || query.data.startsWith('reject:'))) {
+      const [action, pipelineId] = query.data.split(':')
+      const pipeline = pendingPipelines.get(pipelineId)
+
+      if (!pipeline) {
+        bot.answerCallbackQuery(query.id, { text: 'Pipeline expirado.' })
+        return
+      }
+
+      bot.answerCallbackQuery(query.id)
+
+      if (action === 'approve') {
+        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+          chat_id: query.message?.chat.id!,
+          message_id: query.message?.message_id!,
+        })
+
+        const commitMsg = await bot.sendMessage(pipeline.chatId, '📦 Committer generando commit...')
+
+        try {
+          const commitResult = await openclaw.sendMessage(
+            `Create a git commit for the following code. Provide the commit message and summary of changes.\n\nRequirements: ${pipeline.message}\n\nCode:\n${pipeline.result.buildOutput}`,
+            'committer',
+          )
+          bot.deleteMessage(pipeline.chatId, commitMsg.message_id).catch(() => {})
+          bot.sendMessage(pipeline.chatId, `✅ Commit creado:\n\n\`\`\`\n${commitResult}\n\`\`\``, {
+            parse_mode: 'Markdown',
+          })
+        } catch (err) {
+          bot.deleteMessage(pipeline.chatId, commitMsg.message_id).catch(() => {})
+          logger.error('Committer failed', err)
+          bot.sendMessage(pipeline.chatId, '❌ Error al crear el commit. Intenta de nuevo.')
+        }
+      } else {
+        pendingPipelines.delete(pipelineId)
+        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+          chat_id: query.message?.chat.id!,
+          message_id: query.message?.message_id!,
+        })
+        bot.sendMessage(pipeline.chatId, '❌ Pipeline rechazado. Envía otro requerimiento para intentar de nuevo.')
+      }
+
+      pendingPipelines.delete(pipelineId)
     }
   })
 

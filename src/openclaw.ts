@@ -2,6 +2,8 @@ import { Client } from 'ssh2'
 import { readFileSync } from 'node:fs'
 import { logger } from './logger.js'
 
+type AgentId = 'main' | 'builder' | 'tester' | 'committer'
+
 class OpenClawService {
   private conn: Client | null = null
 
@@ -35,7 +37,7 @@ class OpenClawService {
     })
   }
 
-  async sendMessage(text: string): Promise<string> {
+  async sendMessage(text: string, agent: AgentId = 'main'): Promise<string> {
     return new Promise((resolve, reject) => {
       if (!this.conn) {
         reject(new Error('SSH not connected'))
@@ -43,7 +45,7 @@ class OpenClawService {
       }
 
       const escaped = text.replace(/\\/g, '\\\\').replace(/'/g, "'\\''")
-      const cmd = `OPENCLAW_GATEWAY_TOKEN=${this.gatewayToken} openclaw agent --agent main --message '${escaped}'`
+      const cmd = `OPENCLAW_GATEWAY_TOKEN=${this.gatewayToken} openclaw agent --agent ${agent} --message '${escaped}'`
 
       this.conn!.exec(cmd, (err, stream) => {
         if (err) {
