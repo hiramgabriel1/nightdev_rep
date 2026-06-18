@@ -125,22 +125,26 @@ pnpm start
 ```
 nightdev/
 ├── src/
-│   ├── index.ts          # Entrypoint & bot initialization
-│   ├── cli.ts            # Interactive CLI for configuration
-│   ├── commands.ts       # /start, /help handlers & pipeline callbacks
-│   ├── handlers.ts       # Message processing & rate limiting
-│   ├── pipeline.ts       # Multi-agent pipeline orchestrator
-│   ├── openclaw.ts       # SSH service for OpenClaw execution
-│   ├── security.ts       # Prompt injection protection
-│   ├── db.ts             # Prisma client instance
-│   └── logger.ts         # Typed logger with levels
+│   ├── index.ts              # Entrypoint & bot initialization
+│   ├── cli/
+│   │   └── index.ts          # Interactive CLI for configuration
+│   ├── bot/
+│   │   ├── commands.ts       # /start, /status, /help handlers
+│   │   └── handlers.ts       # Message processing & rate limiting
+│   ├── services/
+│   │   ├── openclaw.ts       # SSH service for OpenClaw execution
+│   │   ├── pipeline.ts       # Multi-agent pipeline orchestrator
+│   │   └── security.ts       # Prompt injection protection
+│   └── core/
+│       ├── db.ts             # Prisma client instance
+│       └── logger.ts         # Typed logger with levels
 ├── prisma/
-│   └── schema.prisma     # Database schema
+│   └── schema.prisma         # Database schema
 ├── public/
 │   └── nightdev-removebg-preview.png
-├── .env.example          # Environment template
+├── .env.example              # Environment template
 ├── package.json
-└── tsconfig.json
+── tsconfig.json
 ```
 
 ##  Tech Stack
