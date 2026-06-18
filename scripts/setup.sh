@@ -66,7 +66,7 @@ ok "Directories created"
 info "Writing Dockerfile..."
 cat > "${IMAGES_DIR}/Dockerfile" << 'DOCKERFILE'
 FROM node:24
-RUN npm install -g openclaw@latest
+RUN npm install -g openclaw@latest && npm install -g pm2
 RUN mkdir -p /root/.openclaw
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
@@ -94,8 +94,8 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-echo "[container] Starting bridge..."
-exec node /root/bridge.js
+echo "[container] Starting bridge with PM2..."
+exec pm2-runtime /root/bridge.js
 ENTRYPOINT
 chmod +x "${IMAGES_DIR}/entrypoint.sh"
 ok "entrypoint.sh written"
