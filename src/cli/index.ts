@@ -12,6 +12,9 @@ interface LocalConfig {
   providerApiKey?: string
   telegramBotToken?: string
   useOurService: boolean
+  githubRepo?: string
+  githubBranch?: string
+  githubDeployKeyDone?: boolean
 }
 
 const PROVIDERS = [
@@ -73,6 +76,13 @@ function showConfigStatus(config: LocalConfig) {
   }
 
   console.log(`   Mode: ${config.useOurService ? 'Nightdev (orchestrator)' : 'Own API key'}`)
+
+  if (config.githubRepo) {
+    console.log(`   GitHub Repo: ${config.githubRepo}`)
+    console.log(`   Branch: ${config.githubBranch || 'main'}`)
+    console.log(`   Deploy key: ${config.githubDeployKeyDone ? '✅ configured' : '❌ pending'}`)
+  }
+
   console.log('─'.repeat(40))
   console.log()
 }
@@ -141,6 +151,7 @@ async function configureMenu(): Promise<void> {
     console.log('\n✅ All set! You will now use Nightdev resources and models.')
     console.log('   Just tell me what you want to build and the agent will do it for you.\n')
     await telegramSetupStep()
+    await githubSetupStep()
   }
 }
 
@@ -237,8 +248,64 @@ async function telegramSetupStep(): Promise<void> {
     console.log('\n️  Telegram Bot Token skipped.')
   }
 
-  console.log('\n✅ Configuration complete.')
-  console.log('   You can now talk to your Telegram bot.\n')
+  console.log('\n✅ Telegram bot configured.\n')
+}
+
+async function githubSetupStep(): Promise<void> {
+  await showWelcome()
+
+  const config = loadConfig()
+  showConfigStatus(config)
+
+  const { useGithub } = await inquirer.prompt<{ useGithub: boolean }>([
+    {
+      type: 'confirm',
+      name: 'useGithub',
+      message: 'Configure GitHub commits? (The agent can push code to your repo)',
+      default: true,
+    },
+  ])
+
+  if (!useGithub) {
+    console.log('\n   OK, you can configure it later with /repo in Telegram.\n')
+    console.log('\n✅ Configuration complete.\n')
+    console.log(' Goodbye!\n')
+    process.exit(0)
+  }
+
+  const { repoUrl } = await inquirer.prompt<{ repoUrl: string }>([
+    {
+      type: 'input',
+      name: 'repoUrl',
+      message: 'Enter your GitHub repository URL:',
+      validate: (input: string) => {
+        if (!input.includes('github.com')) return 'Must be a GitHub URL (e.g. https://github.com/user/repo)'
+        return true
+      },
+    },
+  ])
+
+  config.githubRepo = repoUrl
+  config.githubBranch = 'main'
+  config.githubDeployKeyDone = false
+  saveConfig(config)
+
+  console.log('\n')
+  console.log('──────────────────────────────────────────')
+  console.log('🔑 GitHub Deploy Key Setup')
+  console.log('──────────────────────────────────────────')
+  console.log('')
+  console.log('1. Go to your repo: Settings → Deploy keys → Add deploy key')
+  console.log('2. Title: nightdev-robot')
+  console.log('3. Key: When you run the bot, use /deploykey to see the SSH key.')
+  console.log('4. Enable "Allow write access"')
+  console.log('5. After adding it, write "listo" in Telegram.')
+  console.log('')
+  console.log('──────────────────────────────────────────\n')
+
+  console.log('\n✅ GitHub configured.')
+  console.log('   Start your bot with: pnpm dev')
+  console.log('   Then use /deploykey in Telegram to get the SSH key.\n')
   console.log(' Goodbye!\n')
   process.exit(0)
 }
