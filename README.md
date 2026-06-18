@@ -135,6 +135,10 @@ nightdev/
 - **Bridge**: Persistent Node.js HTTP → WebSocket gateway proxy
 - **Development**: tsx (watch mode)
 
+## 🤝 Contributing
+
+Found a bug? [Open an issue](https://github.com/hiramgabriel1/nightdev_rep/issues). Want to add something? Fork the repo and send a pull request.
+
 ## 📄 License
 
 ISC
