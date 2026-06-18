@@ -121,10 +121,18 @@ export function handleCommands(bot: TelegramBot) {
     if (user.useOurService) currentMode = '🟢 Nightdev (orquestador)'
     else if (user.provider) currentMode = `🔑 API key propia (${user.provider})`
 
+    let configDetail = `⚙️ **Configuración actual:** ${currentMode}\n`
+    if (user.githubRepo) {
+      configDetail += `\n📦 **Repo:** \`${user.githubRepo}\``
+      configDetail += `\n🌿 **Rama:** \`${user.githubBranch ?? 'main'}\``
+      configDetail += `\n🔑 **Deploy key:** ${user.githubDeployKeyDone ? '✅ configurada' : '❌ pendiente'}`
+    }
+
     bot.sendMessage(
       msg.chat.id,
-      `⚙️ Configuración actual: ${currentMode}\n\nSelecciona una opción:`,
+      configDetail + '\n\nSelecciona una opción:',
       {
+        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
