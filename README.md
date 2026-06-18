@@ -1,15 +1,16 @@
-# Nightdev
-
 <div align="center">
   <img src="public/nightdev-removebg-preview.png" alt="Nightdev Logo" width="200" />
+  <br/>
+  <h1>Nightdev</h1>
+  <blockquote>Build software from your pocket. A Telegram bot powered by AI agents.</blockquote>
+  <br/>
+  <p>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20+-green.svg" alt="Node"></a>
+    <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5+-blue.svg" alt="TypeScript"></a>
+    <a href="https://www.prisma.io/"><img src="https://img.shields.io/badge/Prisma-ORM-2D3748.svg" alt="Prisma"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-ISC-yellow.svg" alt="License"></a>
+  </p>
 </div>
-
-> Build software from your pocket. A Telegram bot powered by AI agents.
-
-[![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue.svg)](https://www.typescriptlang.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748.svg)](https://www.prisma.io/)
-[![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 
 Nightdev is a Telegram bot that lets you build software from your phone using AI agents on a remote VPS.
 
