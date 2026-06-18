@@ -25,9 +25,16 @@ Nightdev is a Telegram bot that lets you build software from your phone using AI
 ##  Architecture
 
 ```
-Telegram Client  →  Nightdev Bot (Node.js)  →  HTTP Bridge (VPS :18790)
+Telegram Client  →  Nightdev Bot (Node.js)  →  Master Bridge (VPS :18790)
                                                    ↓
-                                              Gateway WebSocket (:18789)
+                                           (routes by user_id)
+                                                   ↓
+                                          ┌── nd-nightdev (:18791)
+                                          ├── nd-u{telegram_id} (:18792)
+                                          ├── nd-u{telegram_id} (:18793)
+                                          └── ... (auto-provisioned per user)
+                                                   ↓
+                                         Container Bridge → Gateway WebSocket (:18789)
                                                    ↓
                                               OpenClaw Agents
                                                  ┌── main
@@ -36,7 +43,7 @@ Telegram Client  →  Nightdev Bot (Node.js)  →  HTTP Bridge (VPS :18790)
                                                  └── committer
 ```
 
-The bot runs locally and connects to a lightweight HTTP bridge on the VPS. The bridge maintains a persistent pool of WebSocket connections to the OpenClaw gateway, avoiding the ~8s CLI startup cost on every message.
+The bot runs locally and connects to a **master bridge** on the VPS. Each Telegram user gets their own isolated Docker container with a dedicated OpenClaw gateway + bridge. New users are **auto-provisioned** — the master bridge creates the container, workspace, and configuration on first message.
 
 ## 📋 Prerequisites
 

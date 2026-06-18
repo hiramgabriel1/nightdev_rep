@@ -62,7 +62,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   const statusMsg = await bot.sendMessage(msg.chat.id, ' Analizando...')
 
   try {
-    const response = sanitizeOutput(await openclaw.sendMessage(text, 'main'))
+    const response = sanitizeOutput(await openclaw.sendMessage(text, telegramId, username))
     await bot.editMessageText(response, {
       chat_id: msg.chat.id,
       message_id: statusMsg.message_id,

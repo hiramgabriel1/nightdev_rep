@@ -2,8 +2,6 @@ import https from 'node:https'
 import http from 'node:http'
 import { logger } from '../core/logger.js'
 
-type AgentId = 'main'
-
 class OpenClawService {
   constructor(
     private host: string,
@@ -16,9 +14,9 @@ class OpenClawService {
     logger.info(`OpenClaw bridge connected at ${this.host}:${this.port}`)
   }
 
-  async sendMessage(text: string, agent: AgentId = 'main'): Promise<string> {
+  async sendMessage(text: string, userId?: string, username?: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ message: text, agent })
+      const body = JSON.stringify({ message: text, user_id: userId, username: username || 'unknown' })
       const client = this.useHttps ? https : http
 
       const req = client.request(
