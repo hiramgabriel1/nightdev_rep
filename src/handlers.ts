@@ -8,12 +8,35 @@ const pendingKeys = new Map<string, string>()
 const OPENCODE_API_KEY_REGEX = /^[a-zA-Z0-9_-]{10,}$/
 const TELEGRAM_BOT_TOKEN_REGEX = /^\d{5,16}:[a-zA-Z0-9_-]{34}$/
 
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_MESSAGES = 5
+const messageCounts = new Map<string, number[]>()
+
+function checkRateLimit(telegramId: string): boolean {
+  const now = Date.now()
+  const timestamps = messageCounts.get(telegramId) || []
+  const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
+
+  if (valid.length >= RATE_LIMIT_MAX_MESSAGES) {
+    return false
+  }
+
+  valid.push(now)
+  messageCounts.set(telegramId, valid)
+  return true
+}
+
 export async function handleMessage(bot: TelegramBot, msg: Message) {
   if (msg.text?.startsWith('/')) return
 
   const text = msg.text?.trim() || ''
   const telegramId = String(msg.from?.id)
   const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
+
+  if (!checkRateLimit(telegramId)) {
+    bot.sendMessage(msg.chat.id, '⏳ Demasiados mensajes. Espera un momento antes de enviar otro.')
+    return
+  }
 
   const pending = pendingKeys.get(telegramId)
 
