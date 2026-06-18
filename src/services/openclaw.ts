@@ -2,7 +2,7 @@ import { Client } from 'ssh2'
 import { readFileSync } from 'node:fs'
 import { logger } from '../core/logger.js'
 
-type AgentId = 'main' | 'builder' | 'tester' | 'committer'
+type AgentId = 'main'
 
 class OpenClawService {
   private conn: Client | null = null

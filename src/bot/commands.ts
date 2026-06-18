@@ -1,9 +1,6 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { logger } from '../core/logger.js'
 import { prisma } from '../core/db.js'
-import { pendingPipelines } from '../services/pipeline.js'
-import { openclaw } from '../services/openclaw.js'
-import { sanitizeOutput } from '../services/security.js'
 
 const PROVIDERS = [
   { id: 'openclaw', name: 'OpenClaw', emoji: '🦞', prefix: 'sk-' },
@@ -139,52 +136,6 @@ export function handleCommands(bot: TelegramBot) {
     logger.info(`Callback: ${query.data} from ${user}`)
 
     if (!query.data) return
-
-    if (query.data.startsWith('approve:') || query.data.startsWith('reject:')) {
-      const [action, pipelineId] = query.data.split(':')
-      const pipeline = pendingPipelines.get(pipelineId)
-
-      if (!pipeline) {
-        bot.answerCallbackQuery(query.id, { text: 'Pipeline expirado.' })
-        return
-      }
-
-      bot.answerCallbackQuery(query.id)
-
-      if (action === 'approve') {
-        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-          chat_id: query.message?.chat.id!,
-          message_id: query.message?.message_id!,
-        })
-
-        const commitMsg = await bot.sendMessage(pipeline.chatId, '📦 Committer generando commit...')
-
-        try {
-          const commitResult = sanitizeOutput(await openclaw.sendMessage(
-            `Create a git commit for the following code. Provide the commit message and summary of changes.\n\nRequirements: ${pipeline.message}\n\nCode:\n${pipeline.result.buildOutput}`,
-            'committer',
-          ))
-          bot.deleteMessage(pipeline.chatId, commitMsg.message_id).catch(() => {})
-          bot.sendMessage(pipeline.chatId, `✅ Commit creado:\n\n\`\`\`\n${commitResult}\n\`\`\``, {
-            parse_mode: 'Markdown',
-          })
-        } catch (err) {
-          bot.deleteMessage(pipeline.chatId, commitMsg.message_id).catch(() => {})
-          logger.error('Committer failed', err)
-          bot.sendMessage(pipeline.chatId, '❌ Error al crear el commit. Intenta de nuevo.')
-        }
-      } else {
-        pendingPipelines.delete(pipelineId)
-        await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
-          chat_id: query.message?.chat.id!,
-          message_id: query.message?.message_id!,
-        })
-        bot.sendMessage(pipeline.chatId, '❌ Pipeline rechazado. Envía otro requerimiento para intentar de nuevo.')
-      }
-
-      pendingPipelines.delete(pipelineId)
-      return
-    }
 
     if (query.data.startsWith('config_')) {
       bot.answerCallbackQuery(query.id)

@@ -2,8 +2,9 @@ import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { logger } from '../core/logger.js'
 import { prisma } from '../core/db.js'
-import { runPipeline } from '../services/pipeline.js'
+import { openclaw } from '../services/openclaw.js'
 import { pendingConfig } from './commands.js'
+import { sanitizeOutput } from '../services/security.js'
 
 const rateLimiter = new RateLimiterMemory({
   points: 10,
@@ -56,6 +57,13 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
     logger.info(`Auto-enabled Nightdev mode for user ${user}`)
   }
 
-  logger.info(`Routing to pipeline for user ${user}`)
-  await runPipeline(bot, msg.chat.id, telegramId, text)
+  logger.info(`Sending message to OpenClaw main agent from ${user}: ${text}`)
+
+  try {
+    const response = sanitizeOutput(await openclaw.sendMessage(text, 'main'))
+    bot.sendMessage(msg.chat.id, response)
+  } catch (err) {
+    logger.error('OpenClaw message failed', err)
+    bot.sendMessage(msg.chat.id, '❌ Error al procesar el mensaje. Intenta de nuevo.')
+  }
 }
