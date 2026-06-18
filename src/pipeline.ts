@@ -1,6 +1,7 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { openclaw } from './openclaw.js'
 import { logger } from './logger.js'
+import { sanitizeInput, sanitizeOutput } from './security.js'
 
 const MAX_RETRIES = 3
 
@@ -26,6 +27,13 @@ export async function runPipeline(
   telegramId: string,
   message: string,
 ): Promise<void> {
+  const inputCheck = sanitizeInput(message)
+  if (!inputCheck.safe) {
+    logger.warn(`Prompt injection detected from ${telegramId}: ${inputCheck.reason}`)
+    bot.sendMessage(chatId, '⛔ Mensaje rechazado por seguridad.')
+    return
+  }
+
   const statusMsg = await bot.sendMessage(chatId, '🔨 Builder está trabajando...')
 
   let buildOutput = ''
@@ -43,10 +51,10 @@ export async function runPipeline(
     }
 
     try {
-      buildOutput = await openclaw.sendMessage(
+      buildOutput = sanitizeOutput(await openclaw.sendMessage(
         attempt === 0 ? message : `Fix the previous issues and regenerate. Previous output:\n\n${testOutput}`,
         'builder',
-      )
+      ))
     } catch (err) {
       logger.error('Builder failed', err)
       bot.editMessageText('❌ Error en el builder. Intenta de nuevo más tarde.', {
@@ -62,10 +70,10 @@ export async function runPipeline(
     })
 
     try {
-      testOutput = await openclaw.sendMessage(
+      testOutput = sanitizeOutput(await openclaw.sendMessage(
         `Review this code and verify it meets the requirements. Report PASS or FAIL with specific issues.\n\nRequirements: ${message}\n\nCode:\n${buildOutput}`,
         'tester',
-      )
+      ))
     } catch (err) {
       logger.error('Tester failed', err)
       bot.editMessageText('❌ Error en el tester. Intenta de nuevo más tarde.', {

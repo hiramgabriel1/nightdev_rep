@@ -4,6 +4,7 @@ import { prisma } from './db.js'
 import { requestApiKeys } from './handlers.js'
 import { pendingPipelines } from './pipeline.js'
 import { openclaw } from './openclaw.js'
+import { sanitizeOutput } from './security.js'
 
 const welcomeText =
   'Bienvenido a Nightdev. Aquí podrás programar desde tu celular.\n\nOpciones:'
@@ -97,10 +98,10 @@ export function handleCommands(bot: TelegramBot) {
         const commitMsg = await bot.sendMessage(pipeline.chatId, '📦 Committer generando commit...')
 
         try {
-          const commitResult = await openclaw.sendMessage(
+          const commitResult = sanitizeOutput(await openclaw.sendMessage(
             `Create a git commit for the following code. Provide the commit message and summary of changes.\n\nRequirements: ${pipeline.message}\n\nCode:\n${pipeline.result.buildOutput}`,
             'committer',
-          )
+          ))
           bot.deleteMessage(pipeline.chatId, commitMsg.message_id).catch(() => {})
           bot.sendMessage(pipeline.chatId, `✅ Commit creado:\n\n\`\`\`\n${commitResult}\n\`\`\``, {
             parse_mode: 'Markdown',
