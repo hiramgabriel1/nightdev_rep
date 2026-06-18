@@ -80,6 +80,6 @@ class OpenClawService {
 export const openclaw = new OpenClawService(
   process.env.VPS_HOST || '159.203.189.5',
   process.env.VPS_USER || 'root',
-  readFileSync('.ssh_key', 'utf-8'),
+  readFileSync(process.env.SSH_KEY_PATH || '.ssh_key', 'utf-8'),
   process.env.OPENCLAW_GATEWAY_TOKEN!,
 )
