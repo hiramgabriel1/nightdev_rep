@@ -15,12 +15,11 @@ Nightdev is a Telegram bot that lets you build software from your phone using AI
 
 ## ✨ Features
 
-- **Single-agent execution** — Messages are sent directly to an OpenClaw main agent that orchestrates the work
-- **Nightdev mode** — Uses Nightdev's own OpenClaw gateway with curated models (no API key needed)
-- **Bring your own provider** — Supports Claude, OpenAI, Gemini, DeepSeek, Mistral, Groq, and more
+- **Multi-agent pipeline** — Greetings go to main agent; build requests run through builder → tester agents
+- **Auto-provisioning** — New users get their own isolated Docker container on first message (no manual setup)
+- **PM2 auto-restart** — Container bridge managed by PM2; auto-recovers from crashes
 - **Rate limiting** — Built-in protection against spam (10 messages/min per user)
 - **Persistent storage** — User data stored in PostgreSQL via Prisma
-- **Auto-recovery** — Robust polling error handling and auto-reconnect
 
 ##  Architecture
 
@@ -34,23 +33,40 @@ Telegram Client  →  Nightdev Bot (Node.js)  →  Master Bridge (VPS :18790)
                                           ├── nd-u{telegram_id} (:18793)
                                           └── ... (auto-provisioned per user)
                                                    ↓
-                                         Container Bridge → Gateway WebSocket (:18789)
+                                          ┌─ PM2 (auto-restart)
+                                          ├─ Container Bridge (Node.js)
+                                          └─ Gateway WebSocket (:18789)
                                                    ↓
                                               OpenClaw Agents
-                                                 ┌── main
-                                                 ├── builder
-                                                 ├── tester
-                                                 └── committer
+                                                 ┌── main (conversation)
+                                                 ├── builder (build code)
+                                                 ├── tester (verify code)
+                                                 └── committer (git ops)
 ```
 
-The bot runs locally and connects to a **master bridge** on the VPS. Each Telegram user gets their own isolated Docker container with a dedicated OpenClaw gateway + bridge. New users are **auto-provisioned** — the master bridge creates the container, workspace, and configuration on first message.
+The bot runs locally and connects to a **master bridge** on the VPS. Each Telegram user gets their own isolated Docker container with a dedicated OpenClaw gateway + bridge. The bridge process is managed by **PM2** for automatic crash recovery.
 
-## 📋 Prerequisites
+New users are **auto-provisioned** — the master bridge creates the container, workspace, and configuration on first message.
+
+## 🚀 VPS Setup (One Command)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hiramgabriel1/nightdev_rep/main/scripts/setup.sh | bash
+```
+
+This script provisions a fresh VPS with everything needed:
+- Docker image with OpenClaw gateway + PM2 bridge
+- Master bridge (auto-provisioning per-user containers)
+- Systemd service for auto-start on boot
+- First user (nightdev) ready to go
+
+**Requires:** Docker, Node.js 20+, and an Opencode API key (for AI agents).
+
+## 📋 Local Prerequisites
 
 - **Node.js** v20 or higher
 - **pnpm** v8 or higher
 - **PostgreSQL** database
-- **OpenClaw** gateway running on a VPS with an HTTP bridge
 
 ## 🚀 Getting Started
 
@@ -138,8 +154,11 @@ nightdev/
 - **Bot Framework**: node-telegram-bot-api
 - **Database**: PostgreSQL + Prisma ORM
 - **Rate Limiting**: rate-limiter-flexible
-- **AI Agents**: OpenClaw on VPS
+- **AI Agents**: OpenClaw on VPS (multi-agent: main, builder, tester, committer)
 - **Bridge**: Persistent Node.js HTTP → WebSocket gateway proxy
+- **Process Management**: PM2 inside Docker containers (auto-restart)
+- **Orchestration**: Docker Compose + systemd (triple-layer recovery)
+- **Secrets**: `.env` files per user, `.gitignore`-d
 - **Development**: tsx (watch mode)
 
 ## 🤝 Contributing
