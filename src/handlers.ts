@@ -29,7 +29,14 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
 
   const text = msg.text?.trim() || ''
   const telegramId = String(msg.from?.id)
-  const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
+  const username = msg.from?.username
+  const user = username ?? msg.from?.id ?? 'unknown'
+
+  await prisma.user.upsert({
+    where: { telegramId },
+    update: { username },
+    create: { telegramId, username },
+  }).catch((err) => logger.error('Failed to upsert user', err))
 
   if (!(await checkRateLimit(telegramId))) {
     bot.sendMessage(msg.chat.id, '⏳ Demasiados mensajes. Espera un momento antes de enviar otro.')

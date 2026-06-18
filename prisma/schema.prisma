@@ -9,13 +9,15 @@ datasource db {
 
 model User {
   id              String   @id @default(uuid())
-  telegramId      String   @unique
-  username        String?
+  telegramId      String?  @unique
+  username        String?  @unique
   firstName       String?
   lastName        String?
   languageCode    String?
   tgApiKey        String?
   opencodeApiKey  String?
+  provider        String?
+  providerApiKey  String?
   useOurService   Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
