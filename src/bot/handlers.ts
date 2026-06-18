@@ -39,9 +39,17 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
 
   const dbUser = await prisma.user.findUnique({ where: { telegramId } })
 
-  if (!dbUser?.useOurService && !dbUser?.provider) {
-    bot.sendMessage(msg.chat.id, 'No tienes configuración. Usa el CLI para configurar tu cuenta o envía /start.')
+  if (!dbUser) {
+    bot.sendMessage(msg.chat.id, 'Envía /start para comenzar.')
     return
+  }
+
+  if (!dbUser.useOurService && !dbUser.provider) {
+    await prisma.user.update({
+      where: { telegramId },
+      data: { useOurService: true },
+    })
+    logger.info(`Auto-enabled Nightdev mode for user ${user}`)
   }
 
   logger.info(`Routing to pipeline for user ${user}`)
