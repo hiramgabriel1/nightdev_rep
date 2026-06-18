@@ -3,7 +3,7 @@ import { RateLimiterMemory } from 'rate-limiter-flexible'
 import { logger } from '../core/logger.js'
 import { prisma } from '../core/db.js'
 import { openclaw } from '../services/openclaw.js'
-import { pendingConfig } from './commands.js'
+import { pendingConfig, PENDING_COMMIT } from './commands.js'
 import { sanitizeOutput } from '../services/security.js'
 
 const rateLimiter = new RateLimiterMemory({
@@ -26,6 +26,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   const telegramId = String(msg.from?.id)
 
   if (pendingConfig.has(telegramId)) return
+  if (PENDING_COMMIT.has(telegramId)) return
 
   const text = msg.text?.trim() || ''
   const username = msg.from?.username
@@ -62,8 +63,42 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   const statusMsg = await bot.sendMessage(msg.chat.id, ' Analizando...')
 
   try {
-    const response = sanitizeOutput(await openclaw.sendMessage(text, telegramId, username))
-    await bot.editMessageText(response, {
+    const response = await openclaw.sendMessage(text, telegramId, username)
+    const cleanText = sanitizeOutput(response.text || '')
+
+    if (response.pipeline_type === 'build' && dbUser.githubRepo && !dbUser.githubDeployKeyDone) {
+      await bot.editMessageText(
+        cleanText + '\n\n⚠️ Configura tu deploy key en GitHub para poder subir código.',
+        {
+          chat_id: msg.chat.id,
+          message_id: statusMsg.message_id,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔑 Ver deploy key', callback_data: 'deploykey_show' }],
+            ],
+          },
+        },
+      )
+      return
+    }
+
+    if (response.pipeline_type === 'build' && dbUser.githubRepo) {
+      await bot.editMessageText(cleanText, {
+        chat_id: msg.chat.id,
+        message_id: statusMsg.message_id,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: ' Subir a GitHub', callback_data: 'commit_yes' },
+              { text: ' Solo ver', callback_data: 'commit_no' },
+            ],
+          ],
+        },
+      })
+      return
+    }
+
+    await bot.editMessageText(cleanText, {
       chat_id: msg.chat.id,
       message_id: statusMsg.message_id,
     })

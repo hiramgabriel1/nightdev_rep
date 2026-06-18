@@ -16,11 +16,14 @@ model User {
   languageCode    String?
   tgApiKey        String?
   opencodeApiKey  String?
-  provider        String?
-  providerApiKey  String?
-  useOurService   Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  provider         String?
+  providerApiKey   String?
+  useOurService    Boolean  @default(false)
+  githubRepo       String?
+  githubBranch     String   @default("main")
+  githubDeployKeyDone Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("users")
 }

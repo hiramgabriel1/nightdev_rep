@@ -2,6 +2,16 @@ import https from 'node:https'
 import http from 'node:http'
 import { logger } from '../core/logger.js'
 
+type BridgeResponse = {
+  ok: boolean
+  text?: string
+  pipeline_type?: 'conversation' | 'build'
+  error?: string
+  public_key?: string
+  repo?: string
+  branch?: string
+}
+
 class OpenClawService {
   constructor(
     private host: string,
@@ -10,13 +20,9 @@ class OpenClawService {
     private useHttps: boolean = false,
   ) {}
 
-  async connect() {
-    logger.info(`OpenClaw bridge connected at ${this.host}:${this.port}`)
-  }
-
-  async sendMessage(text: string, userId?: string, username?: string): Promise<string> {
+  private _request(body: Record<string, unknown>, timeout = 120000): Promise<BridgeResponse> {
     return new Promise((resolve, reject) => {
-      const body = JSON.stringify({ message: text, user_id: userId, username: username || 'unknown' })
+      const payload = JSON.stringify(body)
       const client = this.useHttps ? https : http
 
       const req = client.request(
@@ -26,9 +32,9 @@ class OpenClawService {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${this.bridgeToken}`,
-            'Content-Length': Buffer.byteLength(body),
+            'Content-Length': Buffer.byteLength(payload),
           },
-          timeout: 120000,
+          timeout,
         },
         (res) => {
           let data = ''
@@ -40,13 +46,8 @@ class OpenClawService {
               return
             }
             try {
-              const parsed = JSON.parse(data)
-              if (parsed.ok) {
-                resolve(parsed.text)
-              } else {
-                reject(new Error(parsed.error || 'Unknown error'))
-              }
-            } catch (err) {
+              resolve(JSON.parse(data))
+            } catch {
               reject(new Error(`Invalid JSON response: ${data}`))
             }
           })
@@ -58,9 +59,45 @@ class OpenClawService {
         req.destroy()
         reject(new Error('Bridge request timeout'))
       })
-      req.write(body)
+      req.write(payload)
       req.end()
     })
+  }
+
+  async connect() {
+    logger.info(`OpenClaw bridge connected at ${this.host}:${this.port}`)
+  }
+
+  async sendMessage(text: string, userId?: string, username?: string): Promise<BridgeResponse> {
+    return this._request({
+      message: text,
+      user_id: userId,
+      username: username || 'unknown',
+    }, 180000)
+  }
+
+  async setRepo(userId: string, repoUrl: string, branch = 'main'): Promise<BridgeResponse> {
+    return this._request({
+      action: 'set_repo',
+      user_id: userId,
+      github_repo: repoUrl,
+      github_branch: branch,
+    })
+  }
+
+  async getDeployKey(): Promise<BridgeResponse> {
+    return this._request({
+      action: 'get_deploykey',
+      user_id: 'system',
+    })
+  }
+
+  async commitCode(userId: string, commitMessage: string): Promise<BridgeResponse> {
+    return this._request({
+      action: 'commit',
+      user_id: userId,
+      message: commitMessage,
+    }, 180000)
   }
 }
 
