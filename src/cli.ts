@@ -52,27 +52,27 @@ async function showWelcome() {
 }
 
 function showConfigStatus(config: LocalConfig) {
-  console.log(' Configuración actual:')
+  console.log(' Current configuration:')
   console.log('─'.repeat(40))
 
   if (config.provider && config.providerApiKey) {
     const provider = PROVIDERS.find((p) => p.id === config.provider)
     const masked = config.providerApiKey.slice(0, 4) + '••••' + config.providerApiKey.slice(-4)
-    console.log(`   Proveedor: ${provider?.emoji} ${provider?.name || config.provider}`)
+    console.log(`   Provider: ${provider?.emoji} ${provider?.name || config.provider}`)
     console.log(`   API Key: ${masked}`)
   } else {
-    console.log('   Proveedor: No configurado')
-    console.log('   API Key: No configurada')
+    console.log('   Provider: Not configured')
+    console.log('   API Key: Not configured')
   }
 
   if (config.telegramBotToken) {
     const masked = config.telegramBotToken.slice(0, 6) + '••••' + config.telegramBotToken.slice(-4)
     console.log(`   Telegram Bot Token: ${masked}`)
   } else {
-    console.log('   Telegram Bot Token: No configurado')
+    console.log('   Telegram Bot Token: Not configured')
   }
 
-  console.log(`   Modo: ${config.useOurService ? 'Nightdev (orquestador)' : 'API key propia'}`)
+  console.log(`   Mode: ${config.useOurService ? 'Nightdev (orchestrator)' : 'Own API key'}`)
   console.log('─'.repeat(40))
   console.log()
 }
@@ -89,16 +89,16 @@ async function mainMenu(): Promise<void> {
     {
       type: 'select',
       name: 'action',
-      message: '¿Qué deseas hacer?',
+      message: 'What would you like to do?',
       choices: [
-        { name: 'Configurar uso', value: 'configure' },
-        { name: 'Salir', value: 'exit' },
+        { name: 'Configure', value: 'configure' },
+        { name: 'Exit', value: 'exit' },
       ],
     },
   ])
 
   if (action === 'exit') {
-    console.log('\n ¡Hasta luego!\n')
+    console.log('\n Goodbye!\n')
     return
   }
 
@@ -117,11 +117,11 @@ async function configureMenu(): Promise<void> {
     {
       type: 'select',
       name: 'action',
-      message: 'Configurar uso:',
+      message: 'Configure usage:',
       choices: [
-        { name: 'Usar mi API key propia para mis modelos', value: 'own_key' },
-        { name: 'Usar recursos y modelos de Nightdev', value: 'nightdev' },
-        { name: 'Volver al menú anterior', value: 'back' },
+        { name: 'Use my own API key for models', value: 'own_key' },
+        { name: 'Use Nightdev resources and models', value: 'nightdev' },
+        { name: 'Back to previous menu', value: 'back' },
       ],
     },
   ])
@@ -138,8 +138,8 @@ async function configureMenu(): Promise<void> {
     config.provider = undefined
     config.providerApiKey = undefined
     saveConfig(config)
-    console.log('\n✅ ¡Listo! Ahora usarás los recursos y modelos de Nightdev.')
-    console.log('   Solo escribe lo que quieres construir y el agente lo hará por ti.\n')
+    console.log('\n✅ All set! You will now use Nightdev resources and models.')
+    console.log('   Just tell me what you want to build and the agent will do it for you.\n')
     await telegramSetupStep()
   }
 }
@@ -155,13 +155,13 @@ async function providerSelectionMenu(): Promise<void> {
     value: p.id,
   }))
 
-  choices.push({ name: 'Volver al menú anterior', value: 'back' })
+  choices.push({ name: 'Back to previous menu', value: 'back' })
 
   const { provider } = await inquirer.prompt<{ provider: string }>([
     {
       type: 'select',
       name: 'provider',
-      message: 'Selecciona tu proveedor de modelos:',
+      message: 'Select your model provider:',
       choices,
     },
   ])
@@ -174,24 +174,24 @@ async function providerSelectionMenu(): Promise<void> {
   const selectedProvider = PROVIDERS.find((p) => p.id === provider)
 
   if (!selectedProvider) {
-    console.log('\n❌ Proveedor no válido.\n')
+    console.log('\n❌ Invalid provider.\n')
     await providerSelectionMenu()
     return
   }
 
   const hint = selectedProvider.prefix
-    ? ` (comienza con "${selectedProvider.prefix}")`
+    ? ` (starts with "${selectedProvider.prefix}")`
     : ''
 
   const { apiKey } = await inquirer.prompt([
     {
       type: 'input',
       name: 'apiKey',
-      message: `Ingresa tu API key de ${selectedProvider.name}${hint}:`,
+      message: `Enter your ${selectedProvider.name} API key${hint}:`,
       validate: (input: string) => {
-        if (input.length < 10) return 'La API key debe tener al menos 10 caracteres'
+        if (input.length < 10) return 'API key must be at least 10 characters'
         if (selectedProvider.prefix && !input.startsWith(selectedProvider.prefix)) {
-          return `La API key de ${selectedProvider.name} debe comenzar con "${selectedProvider.prefix}"`
+          return `${selectedProvider.name} API key must start with "${selectedProvider.prefix}"`
         }
         return true
       },
@@ -203,7 +203,7 @@ async function providerSelectionMenu(): Promise<void> {
   config.useOurService = false
   saveConfig(config)
 
-  console.log(`\n✅ ${selectedProvider.emoji} ${selectedProvider.name} configurado correctamente.\n`)
+  console.log(`\n✅ ${selectedProvider.emoji} ${selectedProvider.name} configured successfully.\n`)
   await telegramSetupStep()
 }
 
@@ -213,17 +213,17 @@ async function telegramSetupStep(): Promise<void> {
   const config = loadConfig()
   showConfigStatus(config)
 
-  console.log(' Paso final: Conecta tu bot de Telegram\n')
+  console.log(' Final step: Connect your Telegram bot\n')
 
   const { telegramBotToken } = await inquirer.prompt([
     {
       type: 'input',
       name: 'telegramBotToken',
-      message: 'Ingresa tu Telegram Bot Token (de @BotFather):',
+      message: 'Enter your Telegram Bot Token (from @BotFather):',
       validate: (input: string) => {
         if (input.trim() === '') return true
         const regex = /^\d{5,16}:[a-zA-Z0-9_-]{34,40}$/
-        if (!regex.test(input)) return 'Formato inválido. Debe ser como: 123456:ABC-DEF...'
+        if (!regex.test(input)) return 'Invalid format. Should look like: 123456:ABC-DEF...'
         return true
       },
     },
@@ -232,14 +232,14 @@ async function telegramSetupStep(): Promise<void> {
   if (telegramBotToken.trim() !== '') {
     config.telegramBotToken = telegramBotToken
     saveConfig(config)
-    console.log('\n✅ Telegram Bot Token guardado.')
+    console.log('\n✅ Telegram Bot Token saved.')
   } else {
-    console.log('\n️  Telegram Bot Token omitido.')
+    console.log('\n️  Telegram Bot Token skipped.')
   }
 
-  console.log('\n✅ Configuración completa.')
-  console.log('   Ya puedes hablar con tu bot de Telegram.\n')
-  console.log('👋 ¡Hasta luego!\n')
+  console.log('\n✅ Configuration complete.')
+  console.log('   You can now talk to your Telegram bot.\n')
+  console.log(' Goodbye!\n')
   process.exit(0)
 }
 
