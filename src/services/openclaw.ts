@@ -1,85 +1,74 @@
-import { Client } from 'ssh2'
-import { readFileSync } from 'node:fs'
+import https from 'node:https'
+import http from 'node:http'
 import { logger } from '../core/logger.js'
 
 type AgentId = 'main'
 
 class OpenClawService {
-  private conn: Client | null = null
-
   constructor(
     private host: string,
-    private user: string,
-    private privateKey: string,
-    private gatewayToken: string,
+    private port: number,
+    private bridgeToken: string,
+    private useHttps: boolean = false,
   ) {}
 
   async connect() {
-    return new Promise<void>((resolve, reject) => {
-      this.conn = new Client()
-
-      this.conn.on('ready', () => {
-        logger.info('SSH connected to OpenClaw VPS')
-        resolve()
-      })
-
-      this.conn.on('error', (err) => {
-        logger.error('SSH connection error', err)
-        reject(err)
-      })
-
-      this.conn.connect({
-        host: this.host,
-        port: 22,
-        username: this.user,
-        privateKey: this.privateKey,
-      })
-    })
+    logger.info(`OpenClaw bridge connected at ${this.host}:${this.port}`)
   }
 
   async sendMessage(text: string, agent: AgentId = 'main'): Promise<string> {
     return new Promise((resolve, reject) => {
-      if (!this.conn) {
-        reject(new Error('SSH not connected'))
-        return
-      }
+      const body = JSON.stringify({ message: text, agent })
+      const client = this.useHttps ? https : http
 
-      const escaped = text.replace(/\\/g, '\\\\').replace(/'/g, "'\\''")
-      const cmd = `OPENCLAW_GATEWAY_TOKEN=${this.gatewayToken} openclaw agent --agent ${agent} --message '${escaped}'`
+      const req = client.request(
+        `${this.useHttps ? 'https' : 'http'}://${this.host}:${this.port}/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.bridgeToken}`,
+            'Content-Length': Buffer.byteLength(body),
+          },
+          timeout: 120000,
+        },
+        (res) => {
+          let data = ''
+          res.on('data', chunk => data += chunk)
+          res.on('end', () => {
+            if (res.statusCode !== 200) {
+              logger.error(`Bridge returned ${res.statusCode}: ${data}`)
+              reject(new Error(`Bridge error ${res.statusCode}: ${data}`))
+              return
+            }
+            try {
+              const parsed = JSON.parse(data)
+              if (parsed.ok) {
+                resolve(parsed.text)
+              } else {
+                reject(new Error(parsed.error || 'Unknown error'))
+              }
+            } catch (err) {
+              reject(new Error(`Invalid JSON response: ${data}`))
+            }
+          })
+        },
+      )
 
-      this.conn!.exec(cmd, (err, stream) => {
-        if (err) {
-          reject(err)
-          return
-        }
-
-        let output = ''
-        let errorOutput = ''
-
-        stream.on('close', (code: number) => {
-          if (code !== 0) {
-            logger.error(`OpenClaw command failed with code ${code}: ${errorOutput}`)
-            reject(new Error(errorOutput || 'Command failed'))
-            return
-          }
-          resolve(output.trim())
-        })
-
-        stream.on('data', (data: Buffer) => {
-          output += data.toString()
-        })
-
-        stream.stderr.on('data', (data: Buffer) => {
-          errorOutput += data.toString()
-        })
+      req.on('error', reject)
+      req.on('timeout', () => {
+        req.destroy()
+        reject(new Error('Bridge request timeout'))
       })
+      req.write(body)
+      req.end()
     })
   }
 }
 
 export const openclaw = new OpenClawService(
-  process.env.VPS_HOST || '159.203.189.5',
-  process.env.VPS_USER || 'root',
-  readFileSync(process.env.SSH_KEY_PATH || '.ssh_key', 'utf-8'),
-  process.env.OPENCLAW_GATEWAY_TOKEN!,
+  process.env.OPENCLAW_BRIDGE_HOST || '159.203.189.5',
+  parseInt(process.env.OPENCLAW_BRIDGE_PORT || '18790', 10),
+  process.env.OPENCLAW_BRIDGE_TOKEN || 'nightdev-bridge-2026',
+  process.env.OPENCLAW_BRIDGE_HTTPS === '1',
 )
