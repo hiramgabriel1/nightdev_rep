@@ -36,85 +36,90 @@ export async function runPipeline(
 
   const statusMsg = await bot.sendMessage(chatId, '🔨 Builder está trabajando...')
 
-  let buildOutput = ''
-  let testOutput = ''
-  let testPassed = false
-  let retries = 0
+  try {
+    const rawOutput = sanitizeOutput(await openclaw.sendMessage(message, 'builder'))
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      retries = attempt
-      await bot.editMessageText(`🔨 Builder reintentando (intento ${attempt}/${MAX_RETRIES})...`, {
-        chat_id: chatId,
-        message_id: statusMsg.message_id,
-      })
-    }
-
-    try {
-      buildOutput = sanitizeOutput(await openclaw.sendMessage(
-        attempt === 0 ? message : `Fix the previous issues and regenerate. Previous output:\n\n${testOutput}`,
-        'builder',
-      ))
-    } catch (err) {
-      logger.error('Builder failed', err)
-      bot.editMessageText('❌ Error en el builder. Intenta de nuevo más tarde.', {
-        chat_id: chatId,
-        message_id: statusMsg.message_id,
-      })
+    // Builder clasifica automáticamente usando rules (IDENTITY.md)
+    if (rawOutput.startsWith('TYPE: CHAT')) {
+      await bot.deleteMessage(chatId, statusMsg.message_id)
+      const chatResponse = rawOutput.replace(/^TYPE:\s*CHAT\s*\n?/i, '').trim()
+      bot.sendMessage(chatId, chatResponse)
       return
     }
 
-    await bot.editMessageText('🧪 Tester verificando el código...', {
+    const buildOutput = rawOutput.replace(/^TYPE:\s*BUILD\s*\n?/i, '').trim()
+
+    let testOutput = ''
+    let testPassed = false
+    let retries = 0
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        retries = attempt
+        await bot.editMessageText(`🔨 Builder reintentando (intento ${attempt}/${MAX_RETRIES})...`, {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        })
+      }
+
+      await bot.editMessageText('🧪 Tester verificando el código...', {
+        chat_id: chatId,
+        message_id: statusMsg.message_id,
+      })
+
+      try {
+        testOutput = sanitizeOutput(await openclaw.sendMessage(
+          `Review this code and verify it meets the requirements. Report PASS or FAIL with specific issues.\n\nRequirements: ${message}\n\nCode:\n${buildOutput}`,
+          'tester',
+        ))
+      } catch (err) {
+        logger.error('Tester failed', err)
+        bot.editMessageText('❌ Error en el tester. Intenta de nuevo más tarde.', {
+          chat_id: chatId,
+          message_id: statusMsg.message_id,
+        })
+        return
+      }
+
+      testPassed = testOutput.toUpperCase().includes('PASS')
+
+      if (testPassed) {
+        break
+      }
+    }
+
+    await bot.deleteMessage(chatId, statusMsg.message_id)
+
+    const pipelineId = `${telegramId}_${Date.now()}`
+    pendingPipelines.set(pipelineId, {
+      chatId,
+      telegramId,
+      result: { buildOutput, testOutput, testPassed, retries },
+      message,
+    })
+
+    const report = buildReport(message, buildOutput, testOutput, testPassed, retries)
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '✅ Aprobar y commitear', callback_data: `approve:${pipelineId}` },
+          { text: '❌ Rechazar', callback_data: `reject:${pipelineId}` },
+        ],
+      ],
+    }
+
+    bot.sendMessage(chatId, report, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    })
+  } catch (err) {
+    logger.error('Builder failed', err)
+    bot.editMessageText('❌ Error en el builder. Intenta de nuevo más tarde.', {
       chat_id: chatId,
       message_id: statusMsg.message_id,
     })
-
-    try {
-      testOutput = sanitizeOutput(await openclaw.sendMessage(
-        `Review this code and verify it meets the requirements. Report PASS or FAIL with specific issues.\n\nRequirements: ${message}\n\nCode:\n${buildOutput}`,
-        'tester',
-      ))
-    } catch (err) {
-      logger.error('Tester failed', err)
-      bot.editMessageText('❌ Error en el tester. Intenta de nuevo más tarde.', {
-        chat_id: chatId,
-        message_id: statusMsg.message_id,
-      })
-      return
-    }
-
-    testPassed = testOutput.toUpperCase().includes('PASS')
-
-    if (testPassed) {
-      break
-    }
   }
-
-  const pipelineId = `${telegramId}_${Date.now()}`
-  pendingPipelines.set(pipelineId, {
-    chatId,
-    telegramId,
-    result: { buildOutput, testOutput, testPassed, retries },
-    message,
-  })
-
-  await bot.deleteMessage(chatId, statusMsg.message_id)
-
-  const report = buildReport(message, buildOutput, testOutput, testPassed, retries)
-
-  const keyboard = {
-    inline_keyboard: [
-      [
-        { text: '✅ Aprobar y commitear', callback_data: `approve:${pipelineId}` },
-        { text: '❌ Rechazar', callback_data: `reject:${pipelineId}` },
-      ],
-    ],
-  }
-
-  bot.sendMessage(chatId, report, {
-    parse_mode: 'Markdown',
-    reply_markup: keyboard,
-  })
 }
 
 function buildReport(
