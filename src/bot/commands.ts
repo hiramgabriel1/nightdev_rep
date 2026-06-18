@@ -123,7 +123,7 @@ export function handleCommands(bot: TelegramBot) {
 
     let configDetail = `⚙️ **Configuración actual:** ${currentMode}\n`
     if (user.githubRepo) {
-      configDetail += `\n📦 **Repo:** \`${user.githubRepo}\``
+      configDetail += `\n📦 **Repos:** \`${user.githubRepo}\``
       configDetail += `\n🌿 **Rama:** \`${user.githubBranch ?? 'main'}\``
       configDetail += `\n🔑 **Deploy key:** ${user.githubDeployKeyDone ? '✅ configurada' : '❌ pendiente'}`
     }
