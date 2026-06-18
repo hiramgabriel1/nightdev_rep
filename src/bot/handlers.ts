@@ -59,11 +59,19 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
 
   logger.info(`Sending message to OpenClaw main agent from ${user}: ${text}`)
 
+  const statusMsg = await bot.sendMessage(msg.chat.id, ' Analizando...')
+
   try {
     const response = sanitizeOutput(await openclaw.sendMessage(text, 'main'))
-    bot.sendMessage(msg.chat.id, response)
+    await bot.editMessageText(response, {
+      chat_id: msg.chat.id,
+      message_id: statusMsg.message_id,
+    })
   } catch (err) {
     logger.error('OpenClaw message failed', err)
-    bot.sendMessage(msg.chat.id, '❌ Error al procesar el mensaje. Intenta de nuevo.')
+    await bot.editMessageText('❌ Error al procesar el mensaje. Intenta de nuevo.', {
+      chat_id: msg.chat.id,
+      message_id: statusMsg.message_id,
+    })
   }
 }
