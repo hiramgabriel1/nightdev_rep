@@ -63,7 +63,11 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   const statusMsg = await bot.sendMessage(msg.chat.id, ' Analizando...')
 
   try {
-    const response = await openclaw.sendMessage(text, telegramId, username)
+    const response = await openclaw.sendMessage(
+      text, telegramId, username,
+      dbUser.provider ?? undefined,
+      dbUser.providerApiKey ?? undefined,
+    )
     const cleanText = sanitizeOutput(response.text || '')
 
     if (response.pipeline_type === 'build' && dbUser.githubRepo && !dbUser.githubDeployKeyDone) {

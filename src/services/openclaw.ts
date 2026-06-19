@@ -68,12 +68,22 @@ class OpenClawService {
     logger.info(`OpenClaw bridge connected at ${this.host}:${this.port}`)
   }
 
-  async sendMessage(text: string, userId?: string, username?: string): Promise<BridgeResponse> {
+  async sendMessage(text: string, userId?: string, username?: string, provider?: string, providerApiKey?: string): Promise<BridgeResponse> {
     return this._request({
       message: text,
       user_id: userId,
       username: username || 'unknown',
+      ...(provider ? { provider, provider_api_key: providerApiKey } : {}),
     }, 180000)
+  }
+
+  async updateUserConfig(userId: string, provider: string, apiKey: string): Promise<BridgeResponse> {
+    return this._request({
+      action: 'update_config',
+      user_id: userId,
+      provider,
+      provider_api_key: apiKey,
+    })
   }
 
   async setRepo(userId: string, repoUrl: string, branch = 'main'): Promise<BridgeResponse> {

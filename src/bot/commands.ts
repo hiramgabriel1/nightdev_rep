@@ -496,7 +496,21 @@ export function handleCommands(bot: TelegramBot) {
       })
 
       pendingConfig.delete(telegramId)
-      bot.sendMessage(msg.chat.id, `✅ ${provider.emoji} ${provider.name} configurado correctamente.`)
+
+      const statusMsg = await bot.sendMessage(msg.chat.id, '🔄 Actualizando tu contenedor...')
+
+      try {
+        const result = await openclaw.updateUserConfig(telegramId, config.provider, apiKey)
+        await bot.editMessageText(
+          `✅ ${provider.emoji} ${provider.name} configurado correctamente.\n🟢 Contenedor actualizado y reiniciado.`,
+          { chat_id: msg.chat.id, message_id: statusMsg.message_id },
+        )
+      } catch {
+        await bot.editMessageText(
+          `✅ ${provider.emoji} ${provider.name} configurado.\n⚠️ No se pudo actualizar el contenedor. Envía un mensaje para que se configure automáticamente.`,
+          { chat_id: msg.chat.id, message_id: statusMsg.message_id },
+        )
+      }
     }
   })
 }
