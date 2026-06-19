@@ -7,6 +7,7 @@ import { pendingConfig, PENDING_COMMIT } from './commands.js'
 import { sanitizeOutput } from '../services/security.js'
 import { estimateRequestTokens } from '../services/tokens.js'
 import { checkAbusiveTokenUsage } from '../services/anti-abuse.js'
+import { t, getLangFromDb } from '../core/i18n.js'
 
 const rateLimiter = new RateLimiterMemory({
   points: 10,
@@ -41,19 +42,21 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   }).catch((err: unknown) => logger.error('Failed to upsert user', err))
 
   if (!(await checkRateLimit(telegramId))) {
-    bot.sendMessage(msg.chat.id, '⏳ Demasiados mensajes. Espera un momento antes de enviar otro.')
+    bot.sendMessage(msg.chat.id, t('en', 'rateLimited'))
     return
   }
 
   const dbUser = await prisma.user.findUnique({ where: { telegramId } })
 
   if (!dbUser) {
-    bot.sendMessage(msg.chat.id, 'Envía /start para comenzar.')
+    bot.sendMessage(msg.chat.id, t('en', 'sendStart'))
     return
   }
 
+  const lang = getLangFromDb(dbUser)
+
   if (dbUser.blocked) {
-    bot.sendMessage(msg.chat.id, '🚫 Tu cuenta ha sido suspendida por actividad sospechosa.')
+    bot.sendMessage(msg.chat.id, t(lang, 'accountSuspended'))
     return
   }
 
@@ -68,14 +71,14 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
   if (dbUser.useOurService && dbUser.freeTokens <= 0) {
     bot.sendMessage(
       msg.chat.id,
-      '💀 Te has quedado sin tokens gratis.\n\nConfigura tu propia API key con /config o ponte en contacto para obtener más.',
+      t(lang, 'noTokensLeft'),
     )
     return
   }
 
   logger.info(`Sending message to OpenClaw main agent from ${user}: ${text}`)
 
-  const statusMsg = await bot.sendMessage(msg.chat.id, ' Analizando...')
+  const statusMsg = await bot.sendMessage(msg.chat.id, t(lang, 'analyzing'))
 
   try {
     const response = await openclaw.sendMessage(
@@ -96,7 +99,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
       const abusive = await checkAbusiveTokenUsage(telegramId, updated.freeTokens, tokensUsed)
       if (abusive) {
         await bot.editMessageText(
-          '🚫 Has consumido demasiados tokens en poco tiempo.\n\nTu cuenta ha sido suspendida automáticamente.',
+          t(lang, 'autoBlocked'),
           { chat_id: msg.chat.id, message_id: statusMsg.message_id },
         )
         return
@@ -105,13 +108,13 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
 
     if (response.pipeline_type === 'build' && dbUser.githubRepo && !dbUser.githubDeployKeyDone) {
       await bot.editMessageText(
-        cleanText + '\n\n⚠️ Configura tu deploy key en GitHub para poder subir código.',
+        cleanText + t(lang, 'setupDeployKeyWarning'),
         {
           chat_id: msg.chat.id,
           message_id: statusMsg.message_id,
           reply_markup: {
             inline_keyboard: [
-              [{ text: '🔑 Ver deploy key', callback_data: 'deploykey_show' }],
+              [{ text: t(lang, 'btnDeployKey'), callback_data: 'deploykey_show' }],
             ],
           },
         },
@@ -126,8 +129,8 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: ' Subir a GitHub', callback_data: 'commit_yes' },
-              { text: ' Solo ver', callback_data: 'commit_no' },
+              { text: t(lang, 'btnPushToGithub'), callback_data: 'commit_yes' },
+              { text: t(lang, 'btnViewOnly'), callback_data: 'commit_no' },
             ],
           ],
         },
@@ -141,7 +144,7 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
     })
   } catch (err) {
     logger.error('OpenClaw message failed', err)
-    await bot.editMessageText('❌ Error al procesar el mensaje. Intenta de nuevo.', {
+    await bot.editMessageText(t(lang, 'msgError'), {
       chat_id: msg.chat.id,
       message_id: statusMsg.message_id,
     })

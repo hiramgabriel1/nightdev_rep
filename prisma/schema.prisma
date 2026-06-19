@@ -14,6 +14,7 @@ model User {
   firstName       String?
   lastName        String?
   languageCode    String?
+  language        String  @default("en")
   tgApiKey        String?
   opencodeApiKey  String?
   provider         String?

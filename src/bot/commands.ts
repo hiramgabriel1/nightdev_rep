@@ -3,6 +3,7 @@ import { logger } from '../core/logger.js'
 import { prisma } from '../core/db.js'
 import { openclaw } from '../services/openclaw.js'
 import { checkRepoAbuse } from '../services/anti-abuse.js'
+import { t, getLangFromDb } from '../core/i18n.js'
 
 const PROVIDERS = [
   { id: 'openclaw', name: 'OpenClaw', emoji: '🦞', prefix: 'sk-' },
@@ -19,6 +20,14 @@ const PROVIDERS = [
 
 export const pendingConfig = new Map<string, { step: 'provider' | 'apikey' | 'repo' | 'repourl'; provider?: string }>()
 export const PENDING_COMMIT = new Map<string, { message: string }>()
+
+async function getUserLang(telegramId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { telegramId },
+    select: { language: true },
+  })
+  return user?.language || 'en'
+}
 
 async function upsertUser(telegramId: string, msg: Message) {
   const from = msg.from
@@ -40,7 +49,7 @@ async function upsertUser(telegramId: string, msg: Message) {
   })
 }
 
-function buildProviderKeyboard() {
+function buildProviderKeyboard(lang: string) {
   const buttons = PROVIDERS.map((p) => ({
     text: `${p.emoji} ${p.name}`,
     callback_data: `config_provider:${p.id}`,
@@ -50,7 +59,7 @@ function buildProviderKeyboard() {
   for (let i = 0; i < buttons.length; i += 2) {
     rows.push(buttons.slice(i, i + 2))
   }
-  rows.push([{ text: ' Cancelar', callback_data: 'config_cancel' }])
+  rows.push([{ text: t(lang, 'btnCancel'), callback_data: 'config_cancel' }])
 
   return { inline_keyboard: rows }
 }
@@ -62,17 +71,9 @@ export function handleCommands(bot: TelegramBot) {
     logger.info(`/start from ${username ?? telegramId}`)
 
     await upsertUser(telegramId, msg)
+    const lang = await getUserLang(telegramId)
 
-    bot.sendMessage(
-      msg.chat.id,
-      'Bienvenido a Nightdev.\n\n' +
-      'Tienes 100,000 tokens gratis para empezar. 🎁\n\n' +
-      'Dime qué quieres construir y yo me encargo. Por ejemplo:\n\n' +
-      '• "Crea una API REST con Express"\n' +
-      '• "Hazme una landing page en React"\n' +
-      '• "Crea un script en Python que scrapeé una web"\n\n' +
-      'Usa /config para cambiar tu configuración.',
-    )
+    bot.sendMessage(msg.chat.id, t(lang, 'start'))
   })
 
   bot.onText(/\/status/, async (msg) => {
@@ -80,38 +81,39 @@ export function handleCommands(bot: TelegramBot) {
     const user = await prisma.user.findUnique({ where: { telegramId } })
 
     if (!user) {
-      bot.sendMessage(msg.chat.id, 'No tienes configuración. Envía /start para comenzar.')
+      bot.sendMessage(msg.chat.id, t('en', 'noConfigSendStart'))
       return
     }
 
-    let status = '📋 Tu configuración actual:\n\n'
+    const lang = getLangFromDb(user)
+    let status = t(lang, 'statusTitle')
 
     if (user.useOurService) {
-      status += '🟢 Modo: Nightdev (orquestador)\n'
-      status += `💰 Tokens gratis restantes: ${user.freeTokens.toLocaleString()}\n`
+      status += t(lang, 'nightdevMode')
+      status += t(lang, 'freeTokens', user.freeTokens.toLocaleString())
     } else if (user.provider) {
-      status += `🔑 Modo: API key propia (${user.provider})\n`
+      status += t(lang, 'ownKeyMode', user.provider)
     } else {
-      status += '⚠️ Modo: No configurado\n'
+      status += t(lang, 'notConfigured')
     }
 
     if (user.tgApiKey) {
       const masked = user.tgApiKey.slice(0, 6) + '••••' + user.tgApiKey.slice(-4)
-      status += `🤖 Bot Token: ${masked}\n`
+      status += t(lang, 'botToken', masked)
     }
 
     if (user.githubToken) {
       const masked = user.githubToken.slice(0, 4) + '••••' + user.githubToken.slice(-4)
-      status += `🔑 GitHub token: ${masked}\n`
+      status += t(lang, 'githubToken', masked)
     }
 
     if (user.githubRepo) {
-      status += `📦 Repo: ${user.githubRepo}\n`
-      status += `🌿 Rama: ${user.githubBranch}\n`
-      status += user.githubDeployKeyDone ? '🔑 Deploy key: ✅ configurada\n' : '🔑 Deploy key: ❌ pendiente\n'
+      status += t(lang, 'githubRepo', user.githubRepo)
+      status += t(lang, 'githubBranch', user.githubBranch ?? 'main')
+      status += user.githubDeployKeyDone ? t(lang, 'deployKeyStatusDone') : t(lang, 'deployKeyStatusPending')
     }
 
-    status += '\nUsa /config para cambiar tu configuración.'
+    status += t(lang, 'statusFooter')
 
     bot.sendMessage(msg.chat.id, status)
   })
@@ -121,33 +123,35 @@ export function handleCommands(bot: TelegramBot) {
     const user = await prisma.user.findUnique({ where: { telegramId } })
 
     if (!user) {
-      bot.sendMessage(msg.chat.id, 'Envía /start primero.')
+      bot.sendMessage(msg.chat.id, t('en', 'sendStartFirst'))
       return
     }
 
-    let currentMode = '️ No configurado'
-    if (user.useOurService) currentMode = '🟢 Nightdev (orquestador)'
+    const lang = getLangFromDb(user)
+
+    let currentMode = ' ' + t(lang, 'notConfigured').trim()
+    if (user.useOurService) currentMode = '🟢 Nightdev (orchestrator)'
     else if (user.provider) currentMode = `🔑 API key propia (${user.provider})`
 
-    let configDetail = `⚙️ **Configuración actual:** ${currentMode}\n`
+    let configDetail = t(lang, 'configTitle', currentMode)
     if (user.githubRepo) {
-      configDetail += `\n📦 **Repos:** \`${user.githubRepo}\``
-      configDetail += `\n🌿 **Rama:** \`${user.githubBranch ?? 'main'}\``
-      configDetail += `\n🔑 **Deploy key:** ${user.githubDeployKeyDone ? '✅ configurada' : '❌ pendiente'}`
+      configDetail += t(lang, 'configRepo', user.githubRepo)
+      configDetail += t(lang, 'configBranch', user.githubBranch ?? 'main')
+      configDetail += user.githubDeployKeyDone ? t(lang, 'configDeployKeyDone') : t(lang, 'configDeployKeyPending')
     }
 
     bot.sendMessage(
       msg.chat.id,
-      configDetail + '\n\nSelecciona una opción:',
+      configDetail + t(lang, 'configSelect'),
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: ' Usar Nightdev', callback_data: 'config_nightdev' },
-              { text: '🔑 Usar API key propia', callback_data: 'config_ownkey' },
+              { text: t(lang, 'btnUseNightdev'), callback_data: 'config_nightdev' },
+              { text: t(lang, 'btnUseOwnKey'), callback_data: 'config_ownkey' },
             ],
-            [{ text: '❌ Cancelar', callback_data: 'config_cancel' }],
+            [{ text: t(lang, 'btnCancel'), callback_data: 'config_cancel' }],
           ],
         },
       },
@@ -159,33 +163,35 @@ export function handleCommands(bot: TelegramBot) {
     const user = await prisma.user.findUnique({ where: { telegramId } })
 
     if (!user) {
-      bot.sendMessage(msg.chat.id, 'Envía /start primero.')
+      bot.sendMessage(msg.chat.id, t('en', 'sendStartFirst'))
       return
     }
 
+    const lang = getLangFromDb(user)
     const url = match?.[1]?.trim()
+
     if (!url) {
-      bot.sendMessage(msg.chat.id, 'Usa: /repo https://github.com/usuario/repo')
+      bot.sendMessage(msg.chat.id, t(lang, 'repoUsage'))
       return
     }
 
     if (!url.includes('github.com')) {
-      bot.sendMessage(msg.chat.id, '❌ Solo repositorios de GitHub son soportados.')
+      bot.sendMessage(msg.chat.id, t(lang, 'repoGithubOnly'))
       return
     }
 
     const repoBlocked = await checkRepoAbuse(url, telegramId)
     if (repoBlocked) {
-      bot.sendMessage(msg.chat.id, '🚫 Este repositorio está asociado a una cuenta suspendida.')
+      bot.sendMessage(msg.chat.id, t(lang, 'repoBlocked'))
       return
     }
 
-    const statusMsg = await bot.sendMessage(msg.chat.id, ' Configurando repositorio...')
+    const statusMsg = await bot.sendMessage(msg.chat.id, t(lang, 'configuringRepo'))
 
     try {
       const result = await openclaw.setRepo(telegramId, url, 'main')
       if (!result.ok) {
-        await bot.editMessageText('❌ Error al configurar repo: ' + (result.error || 'desconocido'), {
+        await bot.editMessageText(t(lang, 'repoConfigError', result.error || 'desconocido'), {
           chat_id: msg.chat.id,
           message_id: statusMsg.message_id,
         })
@@ -198,11 +204,11 @@ export function handleCommands(bot: TelegramBot) {
       })
 
       const keyText = result.public_key
-        ? `\n\n🔑 Agrega esta clave SSH como deploy key en GitHub:\n\n\`${result.public_key}\`\n\nSettings → Deploy keys → Add deploy key\nTitle: nightdev-robot`
+        ? t(lang, 'addDeployKey', result.public_key)
         : ''
 
       await bot.editMessageText(
-        `✅ Repositorio configurado: ${url}${keyText}`,
+        t(lang, 'repoConfigured', url) + keyText,
         {
           chat_id: msg.chat.id,
           message_id: statusMsg.message_id,
@@ -211,7 +217,7 @@ export function handleCommands(bot: TelegramBot) {
       )
     } catch (err) {
       logger.error('setRepo failed', err)
-      await bot.editMessageText('❌ Error al conectar con el bridge.', {
+      await bot.editMessageText(t(lang, 'bridgeError'), {
         chat_id: msg.chat.id,
         message_id: statusMsg.message_id,
       })
@@ -219,12 +225,15 @@ export function handleCommands(bot: TelegramBot) {
   })
 
   bot.onText(/\/deploykey/, async (msg) => {
-    const statusMsg = await bot.sendMessage(msg.chat.id, ' Obteniendo clave...')
+    const telegramId = String(msg.from?.id)
+    const lang = await getUserLang(telegramId)
+
+    const statusMsg = await bot.sendMessage(msg.chat.id, t(lang, 'fetchingKey'))
 
     try {
       const result = await openclaw.getDeployKey()
       if (!result.ok || !result.public_key) {
-        await bot.editMessageText('❌ No se pudo obtener la deploy key.', {
+        await bot.editMessageText(t(lang, 'deployKeyError'), {
           chat_id: msg.chat.id,
           message_id: statusMsg.message_id,
         })
@@ -232,11 +241,7 @@ export function handleCommands(bot: TelegramBot) {
       }
 
       await bot.editMessageText(
-        '🔑 **Deploy key de Nightdev Robot:**\n\n' +
-        '```\n' + result.public_key + '\n```\n\n' +
-        'Agrégala en: GitHub → Settings → Deploy keys → Add deploy key\n' +
-        'Title: nightdev-robot\n' +
-        '✅ Allow write access',
+        t(lang, 'deployKeyTitle', result.public_key),
         {
           chat_id: msg.chat.id,
           message_id: statusMsg.message_id,
@@ -244,7 +249,7 @@ export function handleCommands(bot: TelegramBot) {
         },
       )
     } catch {
-      await bot.editMessageText('❌ Error al conectar con el bridge.', {
+      await bot.editMessageText(t(lang, 'bridgeError'), {
         chat_id: msg.chat.id,
         message_id: statusMsg.message_id,
       })
@@ -257,17 +262,20 @@ export function handleCommands(bot: TelegramBot) {
 
     if (!token) {
       const user = await prisma.user.findUnique({ where: { telegramId } })
+      const lang = getLangFromDb(user)
       if (user?.githubToken) {
         const masked = user.githubToken.slice(0, 4) + '••••' + user.githubToken.slice(-4)
-        bot.sendMessage(msg.chat.id, `🔑 Token actual: ${masked}\n\nPara cambiarlo: /githubtoken <tu_token>\n\nCrea uno en GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens (con permisos de repo)` )
+        bot.sendMessage(msg.chat.id, t(lang, 'currentToken', masked))
       } else {
-        bot.sendMessage(msg.chat.id, 'No tienes token configurado.\n\nPara agregarlo: /githubtoken <tu_token>\n\nCrea uno en GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens (con permisos de repo)' )
+        bot.sendMessage(msg.chat.id, t(lang, 'noToken'))
       }
       return
     }
 
+    const lang = await getUserLang(telegramId)
+
     if (token.length < 10) {
-      bot.sendMessage(msg.chat.id, '❌ El token debe tener al menos 10 caracteres.')
+      bot.sendMessage(msg.chat.id, t(lang, 'tokenTooShort'))
       return
     }
 
@@ -276,28 +284,39 @@ export function handleCommands(bot: TelegramBot) {
       data: { githubToken: token },
     })
 
-    bot.sendMessage(msg.chat.id, '✅ Token de GitHub guardado. Los commits se harán con tu cuenta.')
+    bot.sendMessage(msg.chat.id, t(lang, 'tokenSaved'))
   })
 
-  bot.onText(/\/help/, (msg) => {
+  bot.onText(/\/help/, async (msg) => {
+    const telegramId = String(msg.from?.id ?? '')
+    const lang = telegramId ? await getUserLang(telegramId) : 'en'
     const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
     logger.info(`/help from ${user}`)
+    bot.sendMessage(msg.chat.id, t(lang, 'helpText'))
+  })
+
+  bot.onText(/\/language/, async (msg) => {
+    const telegramId = String(msg.from?.id)
+    await upsertUser(telegramId, msg)
+    const user = await prisma.user.findUnique({
+      where: { telegramId },
+      select: { language: true },
+    })
+    const newLang = (user?.language || 'en') === 'en' ? 'es' : 'en'
+    await prisma.user.update({
+      where: { telegramId },
+      data: { language: newLang },
+    })
     bot.sendMessage(
       msg.chat.id,
-      'Comandos disponibles:\n\n' +
-      '/start — Iniciar y ver bienvenida\n' +
-      '/config — Cambiar tu configuración\n' +
-      '/status — Ver tu configuración actual\n' +
-      '/repo <url> — Configurar repositorio GitHub\n' +
-      '/githubtoken <token> — Configurar tu token de GitHub\n' +
-      '/deploykey — Ver clave SSH para GitHub\n' +
-      '/help — Mostrar esta ayuda',
+      newLang === 'en' ? '✅ Language set to English.' : '✅ Idioma cambiado a Español.',
     )
   })
 
   bot.on('callback_query', async (query) => {
     const telegramId = String(query.from?.id)
     const user = query.from?.username ?? query.from?.id
+    const lang = await getUserLang(telegramId)
     logger.info(`Callback: ${query.data} from ${user}`)
 
     if (!query.data) return
@@ -314,13 +333,13 @@ export function handleCommands(bot: TelegramBot) {
 
         bot.sendMessage(
           query.message?.chat.id!,
-          '✅ Ahora usarás los recursos y modelos de Nightdev.',
+          t(lang, 'nightdevActivated'),
           {
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: ' Configurar GitHub', callback_data: 'repo_ask' },
-                  { text: ' No por ahora', callback_data: 'repo_skip' },
+                  { text: t(lang, 'btnSetupGithub'), callback_data: 'repo_ask' },
+                  { text: t(lang, 'btnNotNow'), callback_data: 'repo_skip' },
                 ],
               ],
             },
@@ -330,28 +349,32 @@ export function handleCommands(bot: TelegramBot) {
         pendingConfig.set(telegramId, { step: 'provider' })
         bot.sendMessage(
           query.message?.chat.id!,
-          'Selecciona tu proveedor de modelos:',
-          { reply_markup: buildProviderKeyboard() },
+          t(lang, 'selectProvider'),
+          { reply_markup: buildProviderKeyboard(lang) },
         )
       } else if (query.data.startsWith('config_provider:')) {
         const providerId = query.data.split(':')[1]
         const provider = PROVIDERS.find((p) => p.id === providerId)
 
         if (!provider) {
-          bot.sendMessage(query.message?.chat.id!, '❌ Proveedor no válido.')
+          bot.sendMessage(query.message?.chat.id!, t(lang, 'invalidProvider'))
           return
         }
 
         pendingConfig.set(telegramId, { step: 'apikey', provider: providerId })
 
-        const hint = provider.prefix ? ` (comienza con "${provider.prefix}")` : ''
+        const hint = provider.prefix
+          ? (lang === 'en'
+            ? ` (starts with "${provider.prefix}")`
+            : ` (comienza con "${provider.prefix}")`)
+          : ''
         bot.sendMessage(
           query.message?.chat.id!,
-          `Envía tu API key de ${provider.emoji} ${provider.name}${hint}:`,
+          t(lang, 'sendApiKey', provider.emoji, provider.name, hint),
         )
       } else if (query.data === 'config_cancel') {
         pendingConfig.delete(telegramId)
-        bot.sendMessage(query.message?.chat.id!, '❌ Configuración cancelada.')
+        bot.sendMessage(query.message?.chat.id!, t(lang, 'configCancelled'))
       }
     }
 
@@ -360,30 +383,32 @@ export function handleCommands(bot: TelegramBot) {
       pendingConfig.set(telegramId, { step: 'repo' })
       bot.sendMessage(
         query.message?.chat.id!,
-        '¿Cuál es la URL de tu repositorio de GitHub?\n\nEj: https://github.com/usuario/mi-proyecto',
+        t(lang, 'askRepoUrl'),
       )
     }
 
     if (query.data === 'repo_skip') {
       bot.answerCallbackQuery(query.id)
-      bot.sendMessage(query.message?.chat.id!, 'OK, puedes configurarlo después con /repo.')
+      bot.sendMessage(query.message?.chat.id!, t(lang, 'repoLater'))
     }
 
     if (query.data === 'commit_yes') {
       bot.answerCallbackQuery(query.id)
       const dbUser = await prisma.user.findUnique({ where: { telegramId } })
+      const commitLang = getLangFromDb(dbUser)
+
       if (!dbUser?.githubRepo) {
-        bot.sendMessage(query.message?.chat.id!, '❌ No tienes un repo configurado. Usa /repo o /config.')
+        bot.sendMessage(query.message?.chat.id!, t(commitLang, 'noRepoConfigured'))
         return
       }
       if (!dbUser.githubDeployKeyDone) {
-        bot.sendMessage(query.message?.chat.id!, '⚠️ Primero configura la deploy key. Usa /deploykey')
+        bot.sendMessage(query.message?.chat.id!, t(commitLang, 'setupDeployKeyFirst'))
         return
       }
 
       const msg = await bot.sendMessage(
         query.message?.chat.id!,
-        ' Subiendo código a GitHub...',
+        t(commitLang, 'pushingToGithub'),
       )
 
       try {
@@ -391,13 +416,13 @@ export function handleCommands(bot: TelegramBot) {
           `commit the code in the workspace to the repository ${dbUser.githubRepo} on branch ${dbUser.githubBranch}. use git add -A, commit with a descriptive message, and push.`,
           telegramId,
         )
-        await bot.editMessageText(result.text || '✅ Código subido a GitHub.', {
+        await bot.editMessageText(result.text || t(commitLang, 'codePushed'), {
           chat_id: query.message?.chat.id!,
           message_id: msg.message_id,
         })
       } catch (err) {
         logger.error('Commit failed', err)
-        await bot.editMessageText('❌ Error al subir el código.', {
+        await bot.editMessageText(t(commitLang, 'codePushError'), {
           chat_id: query.message?.chat.id!,
           message_id: msg.message_id,
         })
@@ -406,7 +431,7 @@ export function handleCommands(bot: TelegramBot) {
 
     if (query.data === 'commit_no') {
       bot.answerCallbackQuery(query.id)
-      bot.sendMessage(query.message?.chat.id!, 'OK, el código no se subió.')
+      bot.sendMessage(query.message?.chat.id!, t(lang, 'codeNotPushed'))
     }
 
     if (query.data === 'deploykey_show') {
@@ -416,18 +441,13 @@ export function handleCommands(bot: TelegramBot) {
         if (result.ok && result.public_key) {
           bot.sendMessage(
             query.message?.chat.id!,
-            '🔑 **Deploy key de Nightdev Robot:**\n\n' +
-            '```\n' + result.public_key + '\n```\n\n' +
-            'Agrégala en: GitHub → Settings → Deploy keys → Add deploy key\n' +
-            'Title: nightdev-robot\n' +
-            '✅ Allow write access\n\n' +
-            'Cuando la hayas agregado, escribe "listo" para confirmar.',
+            t(lang, 'deployKeySetup', result.public_key),
             { parse_mode: 'Markdown' },
           )
           pendingConfig.set(telegramId, { step: 'repourl' })
         }
       } catch {
-        bot.sendMessage(query.message?.chat.id!, '❌ Error al obtener la deploy key.')
+        bot.sendMessage(query.message?.chat.id!, t(lang, 'deployKeyFetchError'))
       }
     }
   })
@@ -436,6 +456,7 @@ export function handleCommands(bot: TelegramBot) {
     if (!msg.text || msg.text.startsWith('/')) return
 
     const telegramId = String(msg.from?.id)
+    const lang = await getUserLang(telegramId)
     const config = pendingConfig.get(telegramId)
 
     if (!config) return
@@ -448,9 +469,9 @@ export function handleCommands(bot: TelegramBot) {
           data: { githubDeployKeyDone: true },
         })
         pendingConfig.delete(telegramId)
-        bot.sendMessage(msg.chat.id, '✅ Deploy key configurada. Ahora puedo subir código a tu repo.')
+        bot.sendMessage(msg.chat.id, t(lang, 'deployKeyDone'))
       } else {
-        bot.sendMessage(msg.chat.id, 'Escribe "listo" cuando hayas agregado la deploy key.')
+        bot.sendMessage(msg.chat.id, t(lang, 'typeDoneConfirm'))
       }
       return
     }
@@ -463,24 +484,24 @@ export function handleCommands(bot: TelegramBot) {
     if (config.step === 'repo') {
       const url = msg.text.trim()
       if (!url.includes('github.com')) {
-        bot.sendMessage(msg.chat.id, '❌ Solo repositorios de GitHub son soportados. Intenta de nuevo:')
+        bot.sendMessage(msg.chat.id, t(lang, 'repoGithubOnlyRetry'))
         return
       }
 
       const repoBlocked = await checkRepoAbuse(url, telegramId)
       if (repoBlocked) {
-        bot.sendMessage(msg.chat.id, '🚫 Este repositorio está asociado a una cuenta suspendida.')
+        bot.sendMessage(msg.chat.id, t(lang, 'repoBlockedRetry'))
         pendingConfig.delete(telegramId)
         return
       }
 
       pendingConfig.delete(telegramId)
-      const statusMsg = await bot.sendMessage(msg.chat.id, ' Configurando repositorio...')
+      const statusMsg = await bot.sendMessage(msg.chat.id, t(lang, 'configuringRepo'))
 
       try {
         const result = await openclaw.setRepo(telegramId, url, 'main')
         if (!result.ok) {
-          await bot.editMessageText('❌ Error al configurar repo: ' + (result.error || 'desconocido'), {
+          await bot.editMessageText(t(lang, 'repoConfigError', result.error || 'desconocido'), {
             chat_id: msg.chat.id,
             message_id: statusMsg.message_id,
           })
@@ -493,8 +514,8 @@ export function handleCommands(bot: TelegramBot) {
         })
 
         const text = result.public_key
-          ? `✅ Repositorio configurado.\n\n🔑 Agrega esta SSH key como deploy key en GitHub:\n\n\`${result.public_key}\`\n\nTitle: nightdev-robot\n✅ Allow write access\n\nCuando la agregues, escribe "listo".`
-          : `✅ Repositorio configurado: ${url}`
+          ? t(lang, 'repoConfiguredWithKey', result.public_key)
+          : t(lang, 'repoConfiguredSimple', url)
 
         await bot.editMessageText(text, {
           chat_id: msg.chat.id,
@@ -507,7 +528,7 @@ export function handleCommands(bot: TelegramBot) {
         }
       } catch (err) {
         logger.error('setRepo failed', err)
-        await bot.editMessageText('❌ Error al conectar con el bridge.', {
+        await bot.editMessageText(t(lang, 'bridgeError'), {
           chat_id: msg.chat.id,
           message_id: statusMsg.message_id,
         })
@@ -521,18 +542,18 @@ export function handleCommands(bot: TelegramBot) {
       const provider = PROVIDERS.find((p) => p.id === config.provider)
 
       if (!provider) {
-        bot.sendMessage(msg.chat.id, '❌ Error interno. Intenta de nuevo con /config.')
+        bot.sendMessage(msg.chat.id, t(lang, 'internalErrorRetry'))
         pendingConfig.delete(telegramId)
         return
       }
 
       if (apiKey.length < 10) {
-        bot.sendMessage(msg.chat.id, '❌ La API key debe tener al menos 10 caracteres. Intenta de nuevo:')
+        bot.sendMessage(msg.chat.id, t(lang, 'apiKeyTooShort'))
         return
       }
 
       if (provider.prefix && !apiKey.startsWith(provider.prefix)) {
-        bot.sendMessage(msg.chat.id, `❌ La API key debe comenzar con "${provider.prefix}". Intenta de nuevo:`)
+        bot.sendMessage(msg.chat.id, t(lang, 'apiKeyWrongPrefix', provider.prefix))
         return
       }
 
@@ -547,17 +568,17 @@ export function handleCommands(bot: TelegramBot) {
 
       pendingConfig.delete(telegramId)
 
-      const statusMsg = await bot.sendMessage(msg.chat.id, '🔄 Actualizando tu contenedor...')
+      const statusMsg = await bot.sendMessage(msg.chat.id, t(lang, 'updatingContainer'))
 
       try {
         const result = await openclaw.updateUserConfig(telegramId, config.provider, apiKey)
         await bot.editMessageText(
-          `✅ ${provider.emoji} ${provider.name} configurado correctamente.\n🟢 Contenedor actualizado y reiniciado.`,
+          t(lang, 'containerUpdated', `${provider.emoji} ${provider.name}`),
           { chat_id: msg.chat.id, message_id: statusMsg.message_id },
         )
       } catch {
         await bot.editMessageText(
-          `✅ ${provider.emoji} ${provider.name} configurado.\n⚠️ No se pudo actualizar el contenedor. Envía un mensaje para que se configure automáticamente.`,
+          t(lang, 'containerUpdateFailed', `${provider.emoji} ${provider.name}`),
           { chat_id: msg.chat.id, message_id: statusMsg.message_id },
         )
       }
