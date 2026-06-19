@@ -51,7 +51,9 @@ When your free tokens run out, you can bring your own API key via `/config` — 
 | `/config` | Switch between Nightdev mode and your own API key |
 | `/status` | View your current config and remaining tokens |
 | `/repo <url>` | Connect a GitHub repository |
+| `/githubtoken <token>` | Set your GitHub personal access token for commits |
 | `/deploykey` | Get the SSH deploy key for GitHub |
+| `/language` | Toggle between English and Spanish |
 | `/help` | Show all commands |
 
 ## 🚀 VPS Setup (One Command)
@@ -151,7 +153,7 @@ nightdev/
 │   ├── cli/
 │   │   └── index.ts          # Interactive CLI for configuration
 │   ├── bot/
-│   │   ├── commands.ts       # /start, /status, /config, /help handlers
+│   │   ├── commands.ts       # /start, /status, /config, /language, /help handlers
 │   │   └── handlers.ts       # Message processing
 │   ├── services/
 │   │   ├── anti-abuse.ts     # Automatic abuse detection (rapid token burn, repo dupes)
@@ -160,6 +162,7 @@ nightdev/
 │   │   └── tokens.ts         # Token usage estimation
 │   └── core/
 │       ├── db.ts             # Prisma client instance
+│       ├── i18n.ts           # Localization (en/es) message dictionary
 │       └── logger.ts         # Typed logger with levels
 ├── scripts/
 │   └── setup.sh              # One-command VPS bootstrap script
