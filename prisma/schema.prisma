@@ -20,6 +20,9 @@ model User {
   providerApiKey   String?
   useOurService    Boolean  @default(false)
   freeTokens       Int      @default(100000)
+  lastRequestAt    DateTime?
+  blocked          Boolean  @default(false)
+  blockedReason    String?
   githubRepo       String?
   githubBranch     String   @default("main")
   githubDeployKeyDone Boolean @default(false)

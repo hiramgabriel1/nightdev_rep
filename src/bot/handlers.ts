@@ -6,6 +6,7 @@ import { openclaw } from '../services/openclaw.js'
 import { pendingConfig, PENDING_COMMIT } from './commands.js'
 import { sanitizeOutput } from '../services/security.js'
 import { estimateRequestTokens } from '../services/tokens.js'
+import { checkAbusiveTokenUsage } from '../services/anti-abuse.js'
 
 const rateLimiter = new RateLimiterMemory({
   points: 10,
@@ -51,6 +52,11 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
     return
   }
 
+  if (dbUser.blocked) {
+    bot.sendMessage(msg.chat.id, '🚫 Tu cuenta ha sido suspendida por actividad sospechosa.')
+    return
+  }
+
   if (!dbUser.useOurService && !dbUser.provider) {
     await prisma.user.update({
       where: { telegramId },
@@ -81,11 +87,20 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
 
     if (dbUser.useOurService && dbUser.freeTokens > 0) {
       const tokensUsed = estimateRequestTokens(text, cleanText, response.pipeline_type)
-      await prisma.user.update({
+      const updated = await prisma.user.update({
         where: { telegramId },
-        data: { freeTokens: { decrement: tokensUsed } },
+        data: { freeTokens: { decrement: tokensUsed }, lastRequestAt: new Date() },
       })
-      logger.info(`Deducted ${tokensUsed} tokens from ${user}`)
+      logger.info(`Deducted ${tokensUsed} tokens from ${user} (${updated.freeTokens} remaining)`)
+
+      const abusive = await checkAbusiveTokenUsage(telegramId, updated.freeTokens, tokensUsed)
+      if (abusive) {
+        await bot.editMessageText(
+          '🚫 Has consumido demasiados tokens en poco tiempo.\n\nTu cuenta ha sido suspendida automáticamente.',
+          { chat_id: msg.chat.id, message_id: statusMsg.message_id },
+        )
+        return
+      }
     }
 
     if (response.pipeline_type === 'build' && dbUser.githubRepo && !dbUser.githubDeployKeyDone) {

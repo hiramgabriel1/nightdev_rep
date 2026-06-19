@@ -2,6 +2,7 @@ import TelegramBot, { Message } from 'node-telegram-bot-api'
 import { logger } from '../core/logger.js'
 import { prisma } from '../core/db.js'
 import { openclaw } from '../services/openclaw.js'
+import { checkRepoAbuse } from '../services/anti-abuse.js'
 
 const PROVIDERS = [
   { id: 'openclaw', name: 'OpenClaw', emoji: '🦞', prefix: 'sk-' },
@@ -165,6 +166,12 @@ export function handleCommands(bot: TelegramBot) {
 
     if (!url.includes('github.com')) {
       bot.sendMessage(msg.chat.id, '❌ Solo repositorios de GitHub son soportados.')
+      return
+    }
+
+    const repoBlocked = await checkRepoAbuse(url, telegramId)
+    if (repoBlocked) {
+      bot.sendMessage(msg.chat.id, '🚫 Este repositorio está asociado a una cuenta suspendida.')
       return
     }
 
@@ -423,6 +430,13 @@ export function handleCommands(bot: TelegramBot) {
       const url = msg.text.trim()
       if (!url.includes('github.com')) {
         bot.sendMessage(msg.chat.id, '❌ Solo repositorios de GitHub son soportados. Intenta de nuevo:')
+        return
+      }
+
+      const repoBlocked = await checkRepoAbuse(url, telegramId)
+      if (repoBlocked) {
+        bot.sendMessage(msg.chat.id, '🚫 Este repositorio está asociado a una cuenta suspendida.')
+        pendingConfig.delete(telegramId)
         return
       }
 
