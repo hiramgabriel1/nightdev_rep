@@ -5,6 +5,10 @@ import { handleMessage } from './bot/handlers.js'
 import { logger } from './core/logger.js'
 import { prisma } from './core/db.js'
 import { openclaw } from './services/openclaw.js'
+import app from './server.js'
+
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10)
+const WEBHOOK_URL = process.env.TELEGRAM_WEBHOOK_URL || ''
 
 await prisma.$connect()
 logger.info('Database connected')
@@ -27,11 +31,21 @@ try {
   if (err instanceof Error) logger.warn('GitHub sync failed: ' + err.message)
 }
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, {
-  polling: {
-    params: { timeout: 30 },
-  },
-})
+const token = process.env.TELEGRAM_BOT_TOKEN!
+const bot = WEBHOOK_URL
+  ? new TelegramBot(token, { polling: false, webHook: { port: HTTP_PORT } })
+  : new TelegramBot(token, {
+      polling: { params: { timeout: 30 } },
+    })
+
+if (WEBHOOK_URL) {
+  bot.setWebHook(`${WEBHOOK_URL}/bot${token}`)
+  app.post(`/bot${token}`, (req, res) => {
+    bot.processUpdate(req.body)
+    res.sendStatus(200)
+  })
+  logger.info(`Webhook set at ${WEBHOOK_URL}/bot${token}`)
+}
 
 bot.on('message', async (msg) => {
   const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
@@ -51,7 +65,10 @@ bot.on('error', (err) => logger.error('Bot error', err))
 
 handleCommands(bot)
 
-logger.info('Bot running...')
+app.listen(HTTP_PORT, () => {
+  logger.info(`HTTP server on port ${HTTP_PORT}`)
+  logger.info(`Bot running (${WEBHOOK_URL ? 'webhook' : 'polling'})...`)
+})
 
 process.on('SIGINT', async () => {
   await prisma.$disconnect()
