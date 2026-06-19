@@ -19,9 +19,12 @@ Nightdev is a Telegram bot that builds software for you. Tell it what you want i
 - **Build anything** — APIs, scripts, landing pages, bots, microservices, whatever you describe
 - **Commit to GitHub** — Creates repos, pushes code, manages branches. Just say "commit this"
 - **Multiple agents** — A main agent orchestrates builders, testers, and committers automatically
+- **Free tokens** — 100,000 tokens free for every new user to try it out
+- **Bring your own model** — Use your own API key (Anthropic, OpenAI, Gemini, DeepSeek, and more) via `/config`
 - **Per-user isolation** — Each person gets their own Docker container with dedicated AI agents
 - **Auto-provisioning** — New users are set up automatically on first message, no manual config
 - **GitHub integration** — Connect your repo, add the deploy key, and the bot commits code for you
+- **Privacy first** — Your API keys are never exposed, logged, or shared. See [SECURITY.md](SECURITY.md)
 - **One-command VPS setup** — A single script provisions the entire infrastructure
 
 ## How it works
@@ -33,6 +36,23 @@ You (Telegram) → Nightdev Bot → Master Bridge (VPS) → Your Container → A
 ```
 
 You message the bot on Telegram. It sends your request to your personal container on the VPS, where AI agents build, review, and commit your code. Everything is isolated per user.
+
+### Token system
+
+Every new user gets **100,000 free tokens** to use with the default model. Token usage is estimated from message length (≈4 chars = 1 token). Build requests cost more because they run multiple agents (builder + tester).
+
+When your free tokens run out, you can bring your own API key via `/config` — the bot updates your container to use your provider and model.
+
+### Commands
+
+| Command | Description |
+|---|---|
+| `/start` | Welcome message with token info |
+| `/config` | Switch between Nightdev mode and your own API key |
+| `/status` | View your current config and remaining tokens |
+| `/repo <url>` | Connect a GitHub repository |
+| `/deploykey` | Get the SSH deploy key for GitHub |
+| `/help` | Show all commands |
 
 ## 🚀 VPS Setup (One Command)
 
@@ -134,8 +154,10 @@ nightdev/
 │   │   ├── commands.ts       # /start, /status, /config, /help handlers
 │   │   └── handlers.ts       # Message processing
 │   ├── services/
+│   │   ├── anti-abuse.ts     # Automatic abuse detection (rapid token burn, repo dupes)
 │   │   ├── openclaw.ts       # HTTP client for the VPS master bridge
-│   │   └── security.ts       # Output sanitization
+│   │   ├── security.ts       # Output sanitization (API key redaction)
+│   │   └── tokens.ts         # Token usage estimation
 │   └── core/
 │       ├── db.ts             # Prisma client instance
 │       └── logger.ts         # Typed logger with levels
