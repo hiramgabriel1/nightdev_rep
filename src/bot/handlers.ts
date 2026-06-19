@@ -5,6 +5,7 @@ import { prisma } from '../core/db.js'
 import { openclaw } from '../services/openclaw.js'
 import { pendingConfig, PENDING_COMMIT } from './commands.js'
 import { sanitizeOutput } from '../services/security.js'
+import { estimateRequestTokens } from '../services/tokens.js'
 
 const rateLimiter = new RateLimiterMemory({
   points: 10,
@@ -58,6 +59,14 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
     logger.info(`Auto-enabled Nightdev mode for user ${user}`)
   }
 
+  if (dbUser.useOurService && dbUser.freeTokens <= 0) {
+    bot.sendMessage(
+      msg.chat.id,
+      '💀 Te has quedado sin tokens gratis.\n\nConfigura tu propia API key con /config o ponte en contacto para obtener más.',
+    )
+    return
+  }
+
   logger.info(`Sending message to OpenClaw main agent from ${user}: ${text}`)
 
   const statusMsg = await bot.sendMessage(msg.chat.id, ' Analizando...')
@@ -69,6 +78,15 @@ export async function handleMessage(bot: TelegramBot, msg: Message) {
       dbUser.providerApiKey ?? undefined,
     )
     const cleanText = sanitizeOutput(response.text || '')
+
+    if (dbUser.useOurService && dbUser.freeTokens > 0) {
+      const tokensUsed = estimateRequestTokens(text, cleanText, response.pipeline_type)
+      await prisma.user.update({
+        where: { telegramId },
+        data: { freeTokens: { decrement: tokensUsed } },
+      })
+      logger.info(`Deducted ${tokensUsed} tokens from ${user}`)
+    }
 
     if (response.pipeline_type === 'build' && dbUser.githubRepo && !dbUser.githubDeployKeyDone) {
       await bot.editMessageText(

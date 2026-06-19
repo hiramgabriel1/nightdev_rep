@@ -65,6 +65,7 @@ export function handleCommands(bot: TelegramBot) {
     bot.sendMessage(
       msg.chat.id,
       'Bienvenido a Nightdev.\n\n' +
+      'Tienes 100,000 tokens gratis para empezar. 🎁\n\n' +
       'Dime qué quieres construir y yo me encargo. Por ejemplo:\n\n' +
       '• "Crea una API REST con Express"\n' +
       '• "Hazme una landing page en React"\n' +
@@ -86,6 +87,7 @@ export function handleCommands(bot: TelegramBot) {
 
     if (user.useOurService) {
       status += '🟢 Modo: Nightdev (orquestador)\n'
+      status += `💰 Tokens gratis restantes: ${user.freeTokens.toLocaleString()}\n`
     } else if (user.provider) {
       status += `🔑 Modo: API key propia (${user.provider})\n`
     } else {

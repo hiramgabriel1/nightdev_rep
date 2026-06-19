@@ -19,6 +19,7 @@ model User {
   provider         String?
   providerApiKey   String?
   useOurService    Boolean  @default(false)
+  freeTokens       Int      @default(100000)
   githubRepo       String?
   githubBranch     String   @default("main")
   githubDeployKeyDone Boolean @default(false)
