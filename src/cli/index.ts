@@ -290,13 +290,21 @@ async function githubSetupStep(): Promise<void> {
     },
   ])
 
+  const { githubToken } = await inquirer.prompt<{ githubToken: string }>([
+    {
+      type: 'password',
+      name: 'githubToken',
+      message: 'GitHub Personal Access Token (optional — commits will be attributed to you):',
+    },
+  ])
+
   // Save to database
   try {
-    const user = await prisma.user.findFirst({ where: { useOurService: true } })
+      const user = await prisma.user.findFirst({ where: { useOurService: true } })
     if (user) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { githubRepo: repoUrl, githubBranch: 'main' },
+        data: { githubRepo: repoUrl, githubBranch: 'main', githubToken: githubToken || undefined },
       })
     } else {
       console.log('\n⚠️  No Nightdev user found in database. /start the bot first, then use /repo to configure.\n')
@@ -307,6 +315,10 @@ async function githubSetupStep(): Promise<void> {
     config.githubBranch = 'main'
     config.githubDeployKeyDone = false
     saveConfig(config)
+  }
+
+  if (githubToken) {
+    console.log('\n✅ GitHub token saved. Commits will be attributed to your account.')
   }
 
   console.log('\n')

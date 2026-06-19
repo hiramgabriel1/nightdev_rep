@@ -24,6 +24,7 @@ model User {
   blocked          Boolean  @default(false)
   blockedReason    String?
   githubRepo       String?
+  githubToken      String?
   githubBranch     String   @default("main")
   githubDeployKeyDone Boolean @default(false)
   createdAt        DateTime @default(now())

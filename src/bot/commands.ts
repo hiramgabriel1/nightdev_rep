@@ -100,6 +100,11 @@ export function handleCommands(bot: TelegramBot) {
       status += `🤖 Bot Token: ${masked}\n`
     }
 
+    if (user.githubToken) {
+      const masked = user.githubToken.slice(0, 4) + '••••' + user.githubToken.slice(-4)
+      status += `🔑 GitHub token: ${masked}\n`
+    }
+
     if (user.githubRepo) {
       status += `📦 Repo: ${user.githubRepo}\n`
       status += `🌿 Rama: ${user.githubBranch}\n`
@@ -246,6 +251,34 @@ export function handleCommands(bot: TelegramBot) {
     }
   })
 
+  bot.onText(/\/githubtoken(?: (.+))?/, async (msg, match) => {
+    const telegramId = String(msg.from?.id)
+    const token = match?.[1]?.trim()
+
+    if (!token) {
+      const user = await prisma.user.findUnique({ where: { telegramId } })
+      if (user?.githubToken) {
+        const masked = user.githubToken.slice(0, 4) + '••••' + user.githubToken.slice(-4)
+        bot.sendMessage(msg.chat.id, `🔑 Token actual: ${masked}\n\nPara cambiarlo: /githubtoken <tu_token>\n\nCrea uno en GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens (con permisos de repo)` )
+      } else {
+        bot.sendMessage(msg.chat.id, 'No tienes token configurado.\n\nPara agregarlo: /githubtoken <tu_token>\n\nCrea uno en GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens (con permisos de repo)' )
+      }
+      return
+    }
+
+    if (token.length < 10) {
+      bot.sendMessage(msg.chat.id, '❌ El token debe tener al menos 10 caracteres.')
+      return
+    }
+
+    await prisma.user.update({
+      where: { telegramId },
+      data: { githubToken: token },
+    })
+
+    bot.sendMessage(msg.chat.id, '✅ Token de GitHub guardado. Los commits se harán con tu cuenta.')
+  })
+
   bot.onText(/\/help/, (msg) => {
     const user = msg.from?.username ?? msg.from?.id ?? 'unknown'
     logger.info(`/help from ${user}`)
@@ -256,6 +289,7 @@ export function handleCommands(bot: TelegramBot) {
       '/config — Cambiar tu configuración\n' +
       '/status — Ver tu configuración actual\n' +
       '/repo <url> — Configurar repositorio GitHub\n' +
+      '/githubtoken <token> — Configurar tu token de GitHub\n' +
       '/deploykey — Ver clave SSH para GitHub\n' +
       '/help — Mostrar esta ayuda',
     )

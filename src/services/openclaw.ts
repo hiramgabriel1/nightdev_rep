@@ -86,12 +86,13 @@ class OpenClawService {
     })
   }
 
-  async setRepo(userId: string, repoUrl: string, branch = 'main'): Promise<BridgeResponse> {
+  async setRepo(userId: string, repoUrl: string, branch = 'main', githubToken?: string): Promise<BridgeResponse> {
     return this._request({
       action: 'set_repo',
       user_id: userId,
       github_repo: repoUrl,
       github_branch: branch,
+      ...(githubToken ? { github_token: githubToken } : {}),
     })
   }
 
