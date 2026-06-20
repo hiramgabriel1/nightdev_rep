@@ -22,6 +22,12 @@ variable "droplet_size" {
   default     = "s-4vcpu-8gb-intel"
 }
 
+variable "admin_ip" {
+  description = "Your public IP for admin access (SSH, Dokploy panel)"
+  type        = string
+  default     = "0.0.0.0/0"
+}
+
 variable "droplet_image" {
   description = "Droplet OS image"
   type        = string

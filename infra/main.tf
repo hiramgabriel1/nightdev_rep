@@ -32,7 +32,7 @@ resource "digitalocean_firewall" "nightdev" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    source_addresses = [var.admin_ip]
   }
 
   inbound_rule {
@@ -50,7 +50,7 @@ resource "digitalocean_firewall" "nightdev" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "3000"
-    source_addresses = ["0.0.0.0/0", "::/0"]
+    source_addresses = [var.admin_ip]
   }
 
   inbound_rule {
