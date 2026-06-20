@@ -18,7 +18,7 @@ FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
 
 RUN corepack enable && pnpm install --prod
 
