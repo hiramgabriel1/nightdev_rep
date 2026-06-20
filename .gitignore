@@ -5,3 +5,9 @@ dist/
 .nightdev-config.json
 
 /src/generated/prisma
+
+# Terraform
+infra/terraform.tfvars
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*

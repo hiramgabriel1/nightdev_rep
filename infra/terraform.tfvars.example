@@ -1,0 +1,4 @@
+do_token     = "your-digitalocean-api-token"
+ssh_key_name = "nightdev"
+region       = "nyc1"
+droplet_size = "s-4vcpu-8gb-intel"
