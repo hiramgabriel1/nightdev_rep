@@ -1,12 +1,10 @@
 FROM node:24-alpine AS builder
 
-ENV PNPM_ONLY_BUILT_DEPENDENCIES='["@prisma/engines","prisma","esbuild","ssh2","cpu-features"]'
-
-RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 
 RUN pnpm install
 
@@ -20,14 +18,14 @@ RUN pnpm build
 
 FROM node:24-alpine
 
-ENV PNPM_ONLY_BUILT_DEPENDENCIES='["@prisma/engines","prisma","esbuild","ssh2","cpu-features"]'
-ENV NODE_ENV=production
-
-RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
+RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+ENV NODE_ENV=production
+
+COPY package.json pnpm-lock.yaml .npmrc ./
+
 RUN pnpm install --prod
 
 COPY prisma/ prisma/
