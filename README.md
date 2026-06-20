@@ -56,19 +56,29 @@ When your free tokens run out, you can bring your own API key via `/config` — 
 | `/language` | Toggle between English and Spanish |
 | `/help` | Show all commands |
 
-## 🚀 VPS Setup (One Command)
+## 🚀 VPS Setup
+
+### Dokploy
+
+The VPS runs [Dokploy](https://dokploy.com) — an open-source PaaS on top of Docker Swarm for managing containers, deployments, and SSL certificates.
+
+```bash
+curl -sSL https://dokploy.com/install.sh | sh
+```
+
+Then access `http://your-vps-ip:3000` to create the admin account.
+
+### One-command user setup
+
+Once Dokploy is running, the master bridge handles per-user provisioning:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hiramgabriel1/nightdev_rep/main/scripts/setup.sh | bash
 ```
 
-This script provisions a fresh VPS with everything needed:
-- Docker image with OpenClaw gateway + PM2 bridge
-- Master bridge (auto-provisioning per-user containers)
-- Systemd service for auto-start on boot
-- First user (nightdev) ready to go
+This provisions the OpenClaw gateway, PM2 bridge, and auto-starts containers for new users.
 
-**Requires:** Docker, Node.js 20+, and an Opencode API key (for AI agents).
+**Requires:** Docker, Node.js 20+, and an Opencode API key.
 
 ## 📋 Local Prerequisites
 
@@ -144,6 +154,26 @@ docker run -d \
   nightdev-bot
 ```
 
+## 🏗️ Infrastructure
+
+Infrastructure is managed as code with Terraform at `infra/`:
+
+| File | Purpose |
+|---|---|
+| `main.tf` | Droplet + firewall rules |
+| `variables.tf` | Configurable variables (region, size, admin IP) |
+| `outputs.tf` | Outputs (droplet IP, URN) |
+
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars with your DO token, SSH key name, admin IP
+terraform init
+terraform apply
+```
+
+Firewall restricts admin ports (SSH, Dokploy panel) to only your IP. Public ports (80, 443) are open for Traefik/HTTPS.
+
 ## 📂 Project Structure
 
 ```
@@ -164,6 +194,11 @@ nightdev/
 │       ├── db.ts             # Prisma client instance
 │       ├── i18n.ts           # Localization (en/es) message dictionary
 │       └── logger.ts         # Typed logger with levels
+├── infra/
+│   ├── main.tf               # Terraform: droplet + firewall
+│   ├── variables.tf          # Configurable vars
+│   ├── outputs.tf            # Outputs
+│   └── terraform.tfvars.example
 ├── scripts/
 │   └── setup.sh              # One-command VPS bootstrap script
 ├── prisma/
@@ -186,7 +221,9 @@ nightdev/
 - **AI Agents**: OpenClaw on VPS (multi-agent: main, builder, tester, committer)
 - **Bridge**: Persistent Node.js HTTP → WebSocket gateway proxy
 - **Process Management**: PM2 inside Docker containers
-- **Orchestration**: Docker Compose + systemd
+- **Orchestration**: Docker Swarm (Dokploy) + systemd
+- **PaaS**: Dokploy (open-source, container management + SSL)
+- **Infrastructure as Code**: Terraform (DigitalOcean provider)
 - **Development**: tsx (watch mode)
 
 ## 🤝 Contributing
