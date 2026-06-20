@@ -6,7 +6,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml .npmrc ./
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 COPY prisma/ prisma/
 RUN pnpm prisma generate
@@ -25,7 +25,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package.json pnpm-lock.yaml .npmrc ./
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --prod
 
 COPY prisma/ prisma/
 COPY --from=builder /app/dist/ dist/
