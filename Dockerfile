@@ -28,4 +28,4 @@ COPY --from=builder /app/src/generated/ src/generated/
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm prisma db push --accept-data-loss && node dist/index.js"]
+CMD ["sh", "-c", "ls -la dist/generated/prisma/internal/ && ls -la src/generated/prisma/internal/ 2>/dev/null && pnpm prisma db push --accept-data-loss && node dist/index.js"]
