@@ -33,4 +33,4 @@ COPY --from=builder /app/node_modules/.prisma/ node_modules/.prisma/
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "pnpm prisma db push --accept-data-loss && node dist/index.js"]

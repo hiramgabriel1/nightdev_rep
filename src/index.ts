@@ -7,7 +7,7 @@ import { prisma } from './core/db.js'
 import { openclaw } from './services/openclaw.js'
 import app from './server.js'
 
-const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10)
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || process.env.PORT || '3000', 10)
 const WEBHOOK_URL = process.env.TELEGRAM_WEBHOOK_URL || ''
 
 await prisma.$connect()
