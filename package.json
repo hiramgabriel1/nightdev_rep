@@ -14,15 +14,6 @@
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@11.1.1",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/engines",
-      "prisma",
-      "esbuild",
-      "ssh2",
-      "cpu-features"
-    ]
-  },
   "type": "module",
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
