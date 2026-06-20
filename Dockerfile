@@ -1,12 +1,9 @@
 FROM node:24-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
-
 WORKDIR /app
-
 COPY package.json pnpm-lock.yaml .npmrc ./
 
-RUN pnpm install
+RUN corepack enable && pnpm install
 
 COPY prisma/ prisma/
 RUN pnpm prisma generate
@@ -18,15 +15,12 @@ RUN pnpm build
 
 FROM node:24-alpine
 
-RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
-
 WORKDIR /app
-
 ENV NODE_ENV=production
 
 COPY package.json pnpm-lock.yaml .npmrc ./
 
-RUN pnpm install --prod
+RUN corepack enable && pnpm install --prod
 
 COPY prisma/ prisma/
 COPY --from=builder /app/dist/ dist/
