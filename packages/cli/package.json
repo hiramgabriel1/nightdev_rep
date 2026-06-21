@@ -1,0 +1,16 @@
+{
+  "name": "@nightdev/cli",
+  "version": "0.1.0",
+  "description": "CLI to register your Telegram bot on Nightdev infrastructure",
+  "type": "module",
+  "bin": {
+    "nightdev": "./bin/nightdev.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "ISC"
+}
