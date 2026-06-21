@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path'
 import { createInterface } from 'node:readline'
 
 const CONFIG_PATH = join(homedir(), '.nightdev', 'config.json')
-const DEFAULT_API_URL = 'https://nightdev.app'
+const DEFAULT_API_URL = 'https://nightdev-botapplication-v4nyzj-78c8a0-159-203-189-5.sslip.io'
 
 function rl() {
   return createInterface({ input: process.stdin, output: process.stdout })
