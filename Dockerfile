@@ -24,7 +24,7 @@ RUN corepack enable && pnpm install --prod
 
 COPY prisma/ prisma/
 COPY --from=builder /app/dist/ dist/
-COPY --from=builder /app/src/generated/ generated/
+COPY --from=builder /app/dist/generated/ generated/
 
 EXPOSE 3000
 
