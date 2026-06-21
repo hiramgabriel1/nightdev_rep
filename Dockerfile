@@ -6,7 +6,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
 RUN corepack enable && pnpm install
 
 COPY prisma/ prisma/
-RUN pnpm prisma generate
+RUN pnpm prisma generate && find src/generated -name "*.ts" -exec sed -i 's/\.ts"/.js"/g; s/\.ts'\''/.js'\''/g' {} +
 
 COPY tsconfig.json ./
 COPY src/ src/
