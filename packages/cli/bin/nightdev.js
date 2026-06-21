@@ -5,7 +5,6 @@ import { join, dirname } from 'node:path'
 import { createInterface } from 'node:readline'
 
 const CONFIG_PATH = join(homedir(), '.nightdev', 'config.json')
-const DEFAULT_API_URL = 'https://nightdev-botapplication-v4nyzj-78c8a0-159-203-189-5.sslip.io'
 
 function rl() {
   return createInterface({ input: process.stdin, output: process.stdout })
@@ -33,7 +32,6 @@ async function saveConfig(config) {
 
 async function init() {
   let config = await loadConfig()
-  const apiUrl = config.apiUrl || DEFAULT_API_URL
 
   console.log('\n  \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256e')
   console.log('  \u2502   Nightdev CLI \u2014 Setup       \u2502')
@@ -51,22 +49,25 @@ async function init() {
     process.exit(1)
   }
 
-  let customApi = await ask('API URL (' + apiUrl + '):')
-  if (!customApi) customApi = apiUrl
+  let apiUrl = config.apiUrl || await ask('Nightdev API URL (e.g. https://nightdev.example.com):')
+  if (!apiUrl) {
+    console.log('\u2717 API URL is required (contact your Nightdev provider)')
+    process.exit(1)
+  }
 
-  const registerUrl = customApi.replace(/\/+$/, '') + '/api/v1/register'
+  const registerUrl = apiUrl.replace(/\/+$/, '') + '/api/v1/register'
 
   try {
     const res = await fetch(registerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ botToken: token, webhookUrl: customApi }),
+      body: JSON.stringify({ botToken: token, webhookUrl: apiUrl }),
     })
 
     const data = await res.json()
 
     if (data.ok) {
-      config.apiUrl = customApi
+      config.apiUrl = apiUrl
       config.botToken = token
       config.telegramId = String(data.telegramId || '')
       await saveConfig(config)
@@ -95,7 +96,11 @@ async function status() {
     process.exit(1)
   }
 
-  const apiUrl = (config.apiUrl || DEFAULT_API_URL).replace(/\/+$/, '')
+  const apiUrl = config.apiUrl
+  if (!apiUrl) {
+    console.log('Not configured. Run `npx nightdev init` first.')
+    process.exit(1)
+  }
   const statusUrl = apiUrl + '/api/v1/status?botToken=' + encodeURIComponent(config.botToken)
 
   try {
