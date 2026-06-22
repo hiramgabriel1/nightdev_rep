@@ -325,25 +325,11 @@ export function handleCommands(bot: TelegramBot) {
       bot.answerCallbackQuery(query.id)
 
       if (query.data === 'config_nightdev') {
-        await prisma.user.update({
-          where: { telegramId },
-          data: { useOurService: true, provider: null, providerApiKey: null },
-        })
         pendingConfig.delete(telegramId)
 
         bot.sendMessage(
           query.message?.chat.id!,
           t(lang, 'nightdevActivated'),
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: t(lang, 'btnSetupGithub'), callback_data: 'repo_ask' },
-                  { text: t(lang, 'btnNotNow'), callback_data: 'repo_skip' },
-                ],
-              ],
-            },
-          },
         )
       } else if (query.data === 'config_ownkey') {
         pendingConfig.set(telegramId, { step: 'provider' })
